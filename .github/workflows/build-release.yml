@@ -15,7 +15,7 @@ jobs:
     name: Windows x64
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure
         run: >-
@@ -62,7 +62,7 @@ jobs:
           }
           Get-ChildItem stage
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: PS2-Batch-Renamer-V4-Windows-x64
           path: stage/PS2-Batch-Renamer-V4.exe
@@ -72,7 +72,7 @@ jobs:
     name: Linux x86_64
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install build dependencies
         run: |
@@ -130,7 +130,7 @@ jobs:
           trap - EXIT
           EOF
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: PS2-Batch-Renamer-V4-UI-Smoke
           path: build/v4-ui-smoke.png
@@ -154,7 +154,7 @@ jobs:
             --output appimage
           test -f "$OUTPUT"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: PS2-Batch-Renamer-V4-Linux-x86_64
           path: PS2-Batch-Renamer-V4-Linux-x86_64.AppImage
@@ -168,9 +168,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true

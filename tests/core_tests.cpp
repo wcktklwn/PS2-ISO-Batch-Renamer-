@@ -452,20 +452,26 @@ void containerTests(const fs::path& root) {
     writeZso(iso, plain_zso, false, 0);
     writeZso(iso, compressed_zso, true, 1);
 
-    ps2br::ZsoReader plain_reader(plain_zso);
-    expect(plain_reader.isOpen(), "plain ZSO should open: " + plain_reader.openError());
-    if (plain_reader.isOpen()) {
-        const auto identification = ps2br::identifyGame(plain_reader);
-        expect(identification.success, "plain ZSO should identify: " + identification.error);
-        expect(identification.game_id == "SLUS_217.20", "plain ZSO should preserve the ISO game ID");
+    {
+        // Close each reader before the later rename. Windows rejects a rename
+        // while this process still has the image open.
+        ps2br::ZsoReader plain_reader(plain_zso);
+        expect(plain_reader.isOpen(), "plain ZSO should open: " + plain_reader.openError());
+        if (plain_reader.isOpen()) {
+            const auto identification = ps2br::identifyGame(plain_reader);
+            expect(identification.success, "plain ZSO should identify: " + identification.error);
+            expect(identification.game_id == "SLUS_217.20", "plain ZSO should preserve the ISO game ID");
+        }
     }
 
-    ps2br::ZsoReader compressed_reader(compressed_zso);
-    expect(compressed_reader.isOpen(), "compressed ZSO should open: " + compressed_reader.openError());
-    if (compressed_reader.isOpen()) {
-        const auto identification = ps2br::identifyGame(compressed_reader);
-        expect(identification.success, "aligned LZ4 ZSO should identify: " + identification.error);
-        expect(identification.game_id == "SLUS_217.20", "aligned LZ4 ZSO should preserve the ISO game ID");
+    {
+        ps2br::ZsoReader compressed_reader(compressed_zso);
+        expect(compressed_reader.isOpen(), "compressed ZSO should open: " + compressed_reader.openError());
+        if (compressed_reader.isOpen()) {
+            const auto identification = ps2br::identifyGame(compressed_reader);
+            expect(identification.success, "aligned LZ4 ZSO should identify: " + identification.error);
+            expect(identification.game_id == "SLUS_217.20", "aligned LZ4 ZSO should preserve the ISO game ID");
+        }
     }
 
     const fs::path bad_zso = directory / "bad.zso";
@@ -474,36 +480,44 @@ void containerTests(const fs::path& root) {
         const std::string header(32, 'X');
         file.write(header.data(), static_cast<std::streamsize>(header.size()));
     }
-    ps2br::ZsoReader bad_reader(bad_zso);
-    expect(!bad_reader.isOpen() && bad_reader.openError().find("ZISO") != std::string::npos,
-           "a non-ZISO file should fail with a ZISO header error");
+    {
+        ps2br::ZsoReader bad_reader(bad_zso);
+        expect(!bad_reader.isOpen() && bad_reader.openError().find("ZISO") != std::string::npos,
+               "a non-ZISO file should fail with a ZISO header error");
+    }
 
     const fs::path vcd = directory / "fixture.vcd";
     writeVcd(iso, vcd);
-    ps2br::VcdReader vcd_reader(vcd);
-    expect(vcd_reader.isOpen(), "mode 2 VCD should open: " + vcd_reader.openError());
-    if (vcd_reader.isOpen()) {
-        const auto identification = ps2br::identifyGame(vcd_reader);
-        expect(identification.success, "mode 2 VCD should identify: " + identification.error);
-        expect(identification.game_id == "SLUS_217.20", "VCD cooked sectors should preserve the ISO game ID");
+    {
+        ps2br::VcdReader vcd_reader(vcd);
+        expect(vcd_reader.isOpen(), "mode 2 VCD should open: " + vcd_reader.openError());
+        if (vcd_reader.isOpen()) {
+            const auto identification = ps2br::identifyGame(vcd_reader);
+            expect(identification.success, "mode 2 VCD should identify: " + identification.error);
+            expect(identification.game_id == "SLUS_217.20", "VCD cooked sectors should preserve the ISO game ID");
+        }
     }
 
     const fs::path ps1_iso = directory / "ps1.iso";
     createFixture(ps1_iso, "SLUS_217.20");
     patchSystemCnf(ps1_iso, "BOOT=cdrom:\\\\Slus_005.98;1\r\nTCB=4\r\nEVENT=10\r\n");
-    ps2br::IsoReader ps1_iso_reader(ps1_iso);
-    const auto ps1_iso_id = ps2br::identifyGame(ps1_iso_reader);
-    expect(ps1_iso_id.success && ps1_iso_id.game_id == "SLUS_005.98",
-           "mixed-case cdrom:\\\\ serials should normalize to the canonical ID");
+    {
+        ps2br::IsoReader ps1_iso_reader(ps1_iso);
+        const auto ps1_iso_id = ps2br::identifyGame(ps1_iso_reader);
+        expect(ps1_iso_id.success && ps1_iso_id.game_id == "SLUS_005.98",
+               "mixed-case cdrom:\\\\ serials should normalize to the canonical ID");
+    }
 
     const fs::path ps1_vcd = directory / "ps1.vcd";
     writeVcd(ps1_iso, ps1_vcd);
-    ps2br::VcdReader ps1_vcd_reader(ps1_vcd);
-    expect(ps1_vcd_reader.isOpen(), "PlayStation VCD should open: " + ps1_vcd_reader.openError());
-    if (ps1_vcd_reader.isOpen()) {
-        const auto identification = ps2br::identifyGame(ps1_vcd_reader);
-        expect(identification.success && identification.game_id == "SLUS_005.98",
-               "PlayStation VCD should expose the normalized serial");
+    {
+        ps2br::VcdReader ps1_vcd_reader(ps1_vcd);
+        expect(ps1_vcd_reader.isOpen(), "PlayStation VCD should open: " + ps1_vcd_reader.openError());
+        if (ps1_vcd_reader.isOpen()) {
+            const auto identification = ps2br::identifyGame(ps1_vcd_reader);
+            expect(identification.success && identification.game_id == "SLUS_005.98",
+                   "PlayStation VCD should expose the normalized serial");
+        }
     }
 
     ps2br::GameDatabase database;
@@ -528,7 +542,23 @@ void containerTests(const fs::path& root) {
         {directory, ps2br::ImageType::Vcd, ps2br::NamingMode::TitleOnly}, {}, {});
     expect(vcd_results.size() == 2, "VCD scan should see both synthetic VCD files");
     const auto renamed = renamer.apply(vcd_results, {}, {});
-    expect(renamed.renamed == 2, "both synthetic VCD files should rename");
+    std::string rename_detail;
+    for (const auto& item : vcd_results) {
+        if (item.status == ps2br::ResultStatus::Renamed) {
+            continue;
+        }
+        if (!rename_detail.empty()) {
+            rename_detail += "; ";
+        }
+        rename_detail += item.source_path.filename().string();
+        rename_detail += " ";
+        rename_detail += ps2br::toString(item.status);
+        rename_detail += " ";
+        rename_detail += item.detail;
+    }
+    expect(renamed.renamed == 2,
+           rename_detail.empty() ? "both synthetic VCD files should rename"
+                                 : "both synthetic VCD files should rename: " + rename_detail);
     expect(fs::exists(directory / "Arcana Heart.vcd"), "PlayStation 2 VCD should rename from the database title");
     expect(fs::exists(directory / "Gex - Enter the Gecko.vcd"), "PlayStation VCD should rename from the normalized serial");
 }
