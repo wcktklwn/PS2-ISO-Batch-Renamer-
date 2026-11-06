@@ -342,7 +342,7 @@ void App::drawHeader() {
     ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
     ImGui::TextColored(kCyan, "PS2 BATCH RENAMER");
     ImGui::SameLine();
-    ImGui::TextDisabled("V4.1  |  Native ISO, CHD, ZSO + VCD");
+    ImGui::TextDisabled("V4.1  |  Auto, ISO, CHD, ZSO + VCD");
     ImGui::SameLine(ImGui::GetContentRegionMax().x - 55.0F);
     if (ImGui::SmallButton("About")) show_about_ = true;
     ImGui::PopFont();
@@ -364,6 +364,11 @@ void App::drawSetupPanel() {
 
     ImGui::TextUnformatted("Image type");
     ImGui::SameLine(115.0F);
+    if (ImGui::RadioButton("Auto", image_type_ == ImageType::Auto) && image_type_ != ImageType::Auto) {
+        image_type_ = ImageType::Auto;
+        invalidatePreview("Image type changed; scan again to create a new preview.");
+    }
+    ImGui::SameLine();
     if (ImGui::RadioButton("ISO", image_type_ == ImageType::Iso) && image_type_ != ImageType::Iso) {
         image_type_ = ImageType::Iso;
         invalidatePreview("Image type changed; scan again to create a new preview.");
@@ -527,8 +532,16 @@ void App::drawResultsPanel() {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn(); drawStatusBadge(item.status);
                 const std::string source_filename = pathToUtf8(item.source_path.filename());
-                const std::string destination_filename = item.destination_path.empty()
-                    ? "-" : pathToUtf8(item.destination_path.filename());
+                std::string destination_filename = "-";
+                if (!item.destination_path.empty()) {
+                    if (item.source_path.parent_path().lexically_normal() ==
+                        item.destination_path.parent_path().lexically_normal()) {
+                        destination_filename = pathToUtf8(item.destination_path.filename());
+                    } else {
+                        destination_filename = pathToUtf8(item.destination_path.parent_path().filename() /
+                                                          item.destination_path.filename());
+                    }
+                }
                 ImGui::TableNextColumn(); ImGui::TextUnformatted(source_filename.c_str());
                 ImGui::TableNextColumn(); ImGui::TextUnformatted(item.game_id.c_str());
                 ImGui::TableNextColumn();

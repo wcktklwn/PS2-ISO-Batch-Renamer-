@@ -27,12 +27,17 @@ set(PS2BR_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${PS2BR_GENERATED_DIR}")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/gameid.txt"
+    "${CMAKE_CURRENT_SOURCE_DIR}/media_catalog.txt"
     "${CMAKE_CURRENT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
 )
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/gameid.txt" PS2BR_DATABASE_HEX HEX)
 string(REGEX REPLACE "([0-9a-fA-F][0-9a-fA-F])" "0x\\1," PS2BR_DATABASE_BYTES "${PS2BR_DATABASE_HEX}")
 file(WRITE "${PS2BR_GENERATED_DIR}/embedded_database.h"
 "#pragma once\n#include <string_view>\nnamespace ps2br::embedded {\ninline constexpr unsigned char game_database_data[] = {${PS2BR_DATABASE_BYTES}0x00};\ninline const std::string_view game_database{reinterpret_cast<const char*>(game_database_data), sizeof(game_database_data) - 1};\n}\n")
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/media_catalog.txt" PS2BR_MEDIA_HEX HEX)
+string(REGEX REPLACE "([0-9a-fA-F][0-9a-fA-F])" "0x\\1," PS2BR_MEDIA_BYTES "${PS2BR_MEDIA_HEX}")
+file(WRITE "${PS2BR_GENERATED_DIR}/embedded_media_catalog.h"
+"#pragma once\n#include <string_view>\nnamespace ps2br::embedded {\ninline constexpr unsigned char media_catalog_data[] = {${PS2BR_MEDIA_BYTES}0x00};\ninline const std::string_view media_catalog{reinterpret_cast<const char*>(media_catalog_data), sizeof(media_catalog_data) - 1};\n}\n")
 
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md" PS2BR_NOTICES_TEXT)
 string(FIND "${PS2BR_NOTICES_TEXT}" ")PS2NOTICES\"" PS2BR_NOTICES_DELIMITER_COLLISION)
@@ -50,6 +55,7 @@ add_library(ps2br_core
     src/core/VcdReader.cpp
     src/core/Lz4.cpp
     src/core/Identifier.cpp
+    src/core/MediaCatalog.cpp
     src/core/PathText.cpp
     src/core/Renamer.cpp
     src/core/Report.cpp

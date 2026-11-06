@@ -17,6 +17,7 @@ public:
     bool isOpen() const;
     const std::string& openError() const;
     bool read(std::uint64_t offset, std::span<std::byte> destination, std::string& error) override;
+    std::uint64_t logicalBytes() const override { return total_bytes_; }
 
 private:
     bool readAt(std::uint64_t offset, std::span<std::byte> destination, std::string& error);

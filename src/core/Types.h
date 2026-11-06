@@ -10,6 +10,7 @@ enum class ImageType {
     Chd,
     Zso,
     Vcd,
+    Auto,
 };
 
 enum class NamingMode {
@@ -28,6 +29,7 @@ enum class ResultStatus {
 
 struct Identification {
     bool success = false;
+    bool playstation1 = false;
     std::string game_id;
     std::string error;
     std::uint64_t root_directory_offset = 0;

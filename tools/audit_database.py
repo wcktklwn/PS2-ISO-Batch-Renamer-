@@ -330,6 +330,24 @@ def artifact_label(path: Path, repository_root: Path) -> str:
         return path.as_posix()
 
 
+def redump_playstation_ids(base: Path) -> set[str]:
+    """PlayStation serials in media_catalog.txt stay out of the PS2 review queue."""
+    catalog = base.parent / "media_catalog.txt"
+    if not catalog.is_file():
+        return set()
+    ids: set[str] = set()
+    for line_number, raw_line in enumerate(catalog.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) != 2 or parts[1] not in {"C", "D", "P"} or GAME_ID_RE.fullmatch(parts[0]) is None:
+            raise ValueError(f"{catalog}:{line_number}: invalid media catalog record")
+        if parts[1] == "P":
+            ids.add(parts[0])
+    return ids
+
+
 def audit(args: argparse.Namespace) -> dict[str, int]:
     release_label = args.release_version.removeprefix("v").removeprefix("V")
     if not re.fullmatch(r"\d+\.\d+\.\d+", release_label):
@@ -358,7 +376,8 @@ def audit(args: argparse.Namespace) -> dict[str, int]:
 
     primary_ids = set().union(*(set(records) for records in sources.values()))
     support_ids = set(get_config)
-    protected_ids = set(reviewed) | set(translated)
+    ps1_ids = redump_playstation_ids(args.base)
+    protected_ids = set(reviewed) | set(translated) | ps1_ids
     changes: list[Change] = []
     reviews: dict[str, Review] = {}
     final: dict[str, str] = {}
@@ -527,6 +546,7 @@ review ledgers sit beside this report.
 
 - Base records: **{len(base):,}**
 - Final records and unique IDs: **{len(final):,}**
+- Redump PlayStation serials kept out of the review queue: **{len(ps1_ids):,}**
 - Duplicate IDs: **0**
 - Windows-unsafe titles: **0**
 - Added primary-catalogue IDs: **{action_counts['added-primary-record']:,}**

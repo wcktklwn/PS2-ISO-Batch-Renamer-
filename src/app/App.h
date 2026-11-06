@@ -93,7 +93,7 @@ private:
     std::string folder_path_;
     std::string database_error_;
     std::string online_database_notice_;
-    ImageType image_type_ = ImageType::Iso;
+    ImageType image_type_ = ImageType::Auto;
     NamingMode naming_mode_ = NamingMode::TitleOnly;
     Filter filter_ = Filter::All;
 

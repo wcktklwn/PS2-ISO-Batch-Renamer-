@@ -39,8 +39,28 @@ same identifier.
 PlayStation discs used by POPStarter store the serial after `cdrom:\` rather
 than `cdrom0:\`. Some images double the backslash or use mixed case
 (`Slus_005.98`). When `0:\` is absent, the 11 bytes after `:\` are read,
-extra backslashes are skipped, and the serial is uppercased. A PlayStation 2
-`cdrom0:\` serial is still taken from the original `0:\` match.
+extra backslashes are skipped, and the serial is uppercased. That path sets
+`Identification::playstation1`. A PlayStation 2 `cdrom0:\` serial is still
+taken from the original `0:\` match and does not set the flag.
+
+## Auto placement
+
+Auto scans `.iso`, `.chd`, `.zso`, and `.vcd` in the selected folder and in
+direct `CD`, `DVD`, and `POPS` children. The result keeps the concrete image
+type so the renamed file keeps its extension. Other image types still rename
+inside the file's own directory and only accept their own extension.
+
+In Auto, a PlayStation boot path or a PlayStation serial from
+`media_catalog.txt` goes to `POPS`. A PlayStation 2 serial goes to `CD` or
+`DVD` from that same catalog. The catalog is the Redump PS2 dat's bin/cue
+versus iso split, which matches the Redump CD and DVD media lists, plus the
+Redump PlayStation serial set. It is not stored in `gameid.txt`.
+
+When a serial is absent, CD track metadata makes a CHD a CD and a CHD without
+that metadata is a DVD. Any other image whose user data exceeds 737,280,000
+bytes is a DVD. A smaller unknown image stays in its current folder. Auto
+creates `CD`, `DVD`, or `POPS` when it needs to, reuses an existing folder
+regardless of case, and skips a file that is already at the destination path.
 
 ## Filename parity
 
@@ -72,4 +92,5 @@ The automated core tests verify:
 - plain and LZ4 ZSO blocks, including an alignment shift;
 - VCD Mode 2/2352 cooked sectors;
 - POPStarter `cdrom:\` serials, doubled backslashes, and mixed case;
+- Auto placement into `CD`, `DVD`, and `POPS`, including subdirectory scan;
 - the bundled example ZSO and VCD images when `examples/` is present.

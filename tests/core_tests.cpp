@@ -1,6 +1,7 @@
 #include "core/Database.h"
 #include "core/Identifier.h"
 #include "core/IsoReader.h"
+#include "core/MediaCatalog.h"
 #include "core/OnlineDatabase.h"
 #include "core/Renamer.h"
 #include "core/VcdReader.h"
@@ -101,8 +102,8 @@ void databaseTests() {
 
     ps2br::GameDatabase built_in;
     expect(built_in.loadBuiltIn(error), "built-in database should load: " + error);
-    expect(built_in.recordCount() == 13444, "built-in database should contain the current record count");
-    expect(built_in.uniqueIdCount() == 13444, "every built-in database ID should be unique");
+    expect(built_in.recordCount() == 24477, "built-in database should contain the current record count");
+    expect(built_in.uniqueIdCount() == 24477, "every built-in database ID should be unique");
     expect(built_in.duplicateIdCount() == 0, "built-in database should contain no duplicate IDs");
     constexpr std::array<std::pair<std::string_view, std::string_view>, 62> audited_titles{{
         {"PCPX_966.49", "Gran Turismo 4 - First Preview"},
@@ -194,6 +195,24 @@ void databaseTests() {
     const auto* jet_moto = built_in.findFirst("SCUS_945.55");
     expect(jet_moto != nullptr && jet_moto->title == "Jet Moto 3",
            "POPStarter example serial SCUS_945.55 should resolve to Jet Moto 3");
+    const auto* final_fantasy_vii = built_in.findFirst("SCUS_941.63");
+    expect(final_fantasy_vii != nullptr && final_fantasy_vii->title == "Final Fantasy VII (USA)",
+           "Redump PlayStation serial SCUS_941.63 should resolve to Final Fantasy VII (USA)");
+    const auto* klonoa = built_in.findFirst("SCES_009.42");
+    expect(klonoa != nullptr && klonoa->title == "Klonoa - Door to Phantomile (Europe)",
+           "SCES_009.42 should use the Redump PlayStation title; Secret Agent Clank keeps SCES_554.96");
+    const auto& media = ps2br::MediaCatalog::builtIn();
+    expect(media.size() == 23093, "built-in media catalog should contain the Redump serial set");
+    const ps2br::MediaKind* arcana_media = media.find("SLUS_217.20");
+    const ps2br::MediaKind* ico_media = media.find("SCUS_971.13");
+    const ps2br::MediaKind* gex_media = media.find("SLUS_005.98");
+    expect(arcana_media != nullptr && *arcana_media == ps2br::MediaKind::Dvd,
+           "SLUS_217.20 should be a Redump PlayStation 2 DVD serial");
+    expect(ico_media != nullptr && *ico_media == ps2br::MediaKind::Cd,
+           "SCUS_971.13 should be a Redump PlayStation 2 CD serial");
+    expect(gex_media != nullptr && *gex_media == ps2br::MediaKind::Playstation,
+           "SLUS_005.98 should be a Redump PlayStation serial");
+    expect(media.find("SLUS_999.99") == nullptr, "an unused serial should be absent from the media catalog");
     const auto* retail_kingdom_hearts = built_in.findFirst("SLPM_666.75");
     expect(retail_kingdom_hearts != nullptr &&
                retail_kingdom_hearts->title == "Kingdom Hearts II - Final Mix +",
@@ -266,6 +285,7 @@ void identifierTests(const fs::path& directory) {
     const auto identification = ps2br::identifyGame(reader);
     expect(identification.success, "valid fixture should identify");
     expect(identification.game_id == "SLUS_217.20", "identifier should return the exact 11-byte ID");
+    expect(!identification.playstation1, "a cdrom0: serial should stay on the PlayStation 2 path");
     expect(identification.root_directory_offset == 0x82800, "root-directory offset should match the V2/V3 algorithm");
     expect(identification.system_cnf_offset == 0xC0000, "SYSTEM.CNF offset should match the V2/V3 algorithm");
 
@@ -504,8 +524,8 @@ void containerTests(const fs::path& root) {
     {
         ps2br::IsoReader ps1_iso_reader(ps1_iso);
         const auto ps1_iso_id = ps2br::identifyGame(ps1_iso_reader);
-        expect(ps1_iso_id.success && ps1_iso_id.game_id == "SLUS_005.98",
-               "mixed-case cdrom:\\\\ serials should normalize to the canonical ID");
+        expect(ps1_iso_id.success && ps1_iso_id.game_id == "SLUS_005.98" && ps1_iso_id.playstation1,
+               "mixed-case cdrom:\\\\ serials should normalize to the canonical ID and report PlayStation");
     }
 
     const fs::path ps1_vcd = directory / "ps1.vcd";
@@ -657,8 +677,157 @@ void chdRoundTripTest(const fs::path& root) {
     const auto identification = ps2br::identifyGame(reader);
     expect(identification.success, "native CHD reader should expose the original disc bytes");
     expect(identification.game_id == "SLUS_217.20", "CHD and ISO identification should return the same game ID");
+    expect(reader.hasCdLayout(), "a createcd CHD should expose CD track metadata");
 }
 #endif
+
+void extendUserData(const fs::path& path, std::uint64_t size) {
+    std::fstream file(path, std::ios::in | std::ios::out | std::ios::binary);
+    file.seekp(static_cast<std::streamoff>(size - 1));
+    file.put('\0');
+    file.flush();
+}
+
+const ps2br::RenameResult* findResult(const std::vector<ps2br::RenameResult>& results, const fs::path& filename) {
+    const auto found = std::find_if(results.begin(), results.end(), [&](const ps2br::RenameResult& item) {
+        return item.source_path.filename() == filename;
+    });
+    return found == results.end() ? nullptr : &*found;
+}
+
+void autoMediaTests(const fs::path& root) {
+    const fs::path plain = root / "plain-iso";
+    fs::create_directories(plain);
+    createFixture(plain / "arcana.iso", "SLUS_217.20");
+    ps2br::GameDatabase plain_database;
+    std::string error;
+    expect(plain_database.loadText("SLUS_217.20 Arcana Heart\r\n", "test", error),
+           "plain ISO database should load");
+    ps2br::Renamer plain_renamer(plain_database);
+    auto plain_results = plain_renamer.scan(
+        {plain, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly}, {}, {});
+    expect(plain_results.size() == 1 && plain_results[0].status == ps2br::ResultStatus::Ready &&
+               plain_results[0].destination_path == plain / "Arcana Heart.iso",
+           "ISO mode should rename a DVD serial in its own folder");
+    const auto plain_summary = plain_renamer.apply(plain_results, {}, {});
+    expect(plain_summary.renamed == 1 && fs::exists(plain / "Arcana Heart.iso") && !fs::exists(plain / "DVD"),
+           "ISO mode should not create or use a DVD folder");
+
+    const fs::path library = root / "opl-library";
+    fs::create_directories(library / "DVD");
+    fs::create_directories(library / "POPS");
+    createFixture(library / "arcana.iso", "SLUS_217.20");
+    createFixture(library / "DVD" / "ico.iso", "SCUS_971.13");
+    createFixture(library / "POPS" / "Gex - Enter the Gecko.iso", "SLUS_005.98");
+    createFixture(library / "unknown.iso", "SLUS_999.99");
+    createFixture(library / "big-unknown.iso", "SLUS_999.98");
+    extendUserData(library / "big-unknown.iso", 737280001ULL);
+    createFixture(library / "ps1-boot.iso", "SLUS_217.20");
+    patchSystemCnf(library / "ps1-boot.iso", "BOOT=cdrom:\\\\SLUS_217.20;1\r\n");
+    {
+        std::ofstream chd(library / "broken.chd", std::ios::binary);
+        chd << "not a chd";
+    }
+
+    {
+        ps2br::IsoReader ps1_reader(library / "ps1-boot.iso");
+        const auto ps1_boot = ps2br::identifyGame(ps1_reader);
+        expect(ps1_boot.success && ps1_boot.playstation1 && ps1_boot.game_id == "SLUS_217.20",
+               "a cdrom: boot path should force the PlayStation placement");
+    }
+
+    ps2br::GameDatabase database;
+    expect(database.loadText(
+               "SLUS_217.20 Arcana Heart\r\n"
+               "SCUS_971.13 Ico\r\n"
+               "SLUS_005.98 Gex - Enter the Gecko\r\n"
+               "SLUS_999.99 Mystery Disc\r\n"
+               "SLUS_999.98 Huge Mystery\r\n",
+               "test", error),
+           "auto media database should load");
+    ps2br::Renamer renamer(database);
+
+    auto iso_results = renamer.scan({library, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly}, {}, {});
+    const auto* iso_ico = findResult(iso_results, "ico.iso");
+    const auto* iso_arcana = findResult(iso_results, "arcana.iso");
+    expect(iso_results.size() == 6, "ISO mode should see images in CD, DVD, and POPS subfolders");
+    expect(iso_ico != nullptr && iso_ico->destination_path == library / "DVD" / "Ico.iso",
+           "ISO mode should rename inside the folder where the image was found");
+    expect(iso_arcana != nullptr && iso_arcana->destination_path == library / "Arcana Heart.iso",
+           "ISO mode should leave a root image in the selected folder");
+
+    auto results = renamer.scan({library, ps2br::ImageType::Auto, ps2br::NamingMode::TitleOnly}, {}, {});
+    const auto* arcana = findResult(results, "arcana.iso");
+    const auto* ico = findResult(results, "ico.iso");
+    const auto* gex = findResult(results, "Gex - Enter the Gecko.iso");
+    const auto* unknown = findResult(results, "unknown.iso");
+    const auto* huge = findResult(results, "big-unknown.iso");
+    const auto* ps1 = findResult(results, "ps1-boot.iso");
+    const auto* broken = findResult(results, "broken.chd");
+    expect(results.size() == 7, "Auto mode should scan iso and chd files together");
+    expect(arcana != nullptr && arcana->image_type == ps2br::ImageType::Iso &&
+               arcana->status == ps2br::ResultStatus::Ready && arcana->detail == "Move to DVD" &&
+               arcana->destination_path == library / "DVD" / "Arcana Heart.iso",
+           "a Redump DVD serial should move into DVD");
+    expect(ico != nullptr && ico->status == ps2br::ResultStatus::Ready && ico->detail == "Move to CD" &&
+               ico->destination_path == library / "CD" / "Ico.iso",
+           "a Redump CD serial should move into CD even when it was stored in DVD");
+    expect(gex != nullptr && gex->status == ps2br::ResultStatus::Skipped &&
+               gex->destination_path == library / "POPS" / "Gex - Enter the Gecko.iso",
+           "a PlayStation image already in POPS with the right name should be skipped");
+    expect(unknown != nullptr && unknown->status == ps2br::ResultStatus::Ready &&
+               unknown->destination_path == library / "Mystery Disc.iso" &&
+               unknown->detail.find("unknown") != std::string::npos,
+           "a small serial missing from Redump should stay in the current folder");
+    expect(huge != nullptr && huge->status == ps2br::ResultStatus::Ready && huge->detail == "Move to DVD" &&
+               huge->destination_path == library / "DVD" / "Huge Mystery.iso",
+           "user data past CD capacity should move into DVD");
+    expect(ps1 != nullptr && ps1->status == ps2br::ResultStatus::Ready && ps1->detail == "Move to POPS" &&
+               ps1->destination_path == library / "POPS" / "Arcana Heart.iso",
+           "a cdrom: boot path should move into POPS even when the serial is a PlayStation 2 DVD");
+    expect(broken != nullptr && broken->image_type == ps2br::ImageType::Chd &&
+               broken->status == ps2br::ResultStatus::Failed,
+           "Auto mode should still list CHD files");
+#if !PS2BR_ENABLE_CHD
+    expect(broken != nullptr && broken->detail.find("does not include CHD support") != std::string::npos,
+           "Auto mode should report a build without CHD support");
+#endif
+
+    std::string rename_detail;
+    const auto summary = renamer.apply(results, {}, {});
+    for (const auto& item : results) {
+        if (item.status == ps2br::ResultStatus::Renamed || item.status == ps2br::ResultStatus::Skipped ||
+            item.status == ps2br::ResultStatus::Failed) {
+            continue;
+        }
+        rename_detail += item.source_path.filename().string() + " " + ps2br::toString(item.status) + " " + item.detail + "; ";
+    }
+    expect(summary.renamed == 5 && summary.skipped == 1 && summary.failed == 1,
+           rename_detail.empty() ? "Auto mode should move the five classified images"
+                                 : "Auto mode should move the five classified images: " + rename_detail);
+    expect(fs::exists(library / "DVD" / "Arcana Heart.iso"), "DVD image should land in DVD");
+    expect(fs::exists(library / "CD" / "Ico.iso"), "CD image should land in CD");
+    expect(fs::exists(library / "POPS" / "Gex - Enter the Gecko.iso"), "PlayStation image should remain in POPS");
+    expect(fs::exists(library / "POPS" / "Arcana Heart.iso"), "PlayStation boot image should land in POPS");
+    expect(fs::exists(library / "Mystery Disc.iso"), "unknown media should remain in the selected folder");
+    expect(fs::exists(library / "DVD" / "Huge Mystery.iso"), "oversized unknown media should land in DVD");
+    expect(!fs::exists(library / "DVD" / "ico.iso"), "the CD image should leave the DVD folder");
+
+    const fs::path selected_dvd = root / "selected-dvd";
+    fs::create_directories(selected_dvd / "DVD");
+    createFixture(selected_dvd / "DVD" / "arcana.iso", "SLUS_217.20");
+    auto nested = renamer.scan(
+        {selected_dvd / "DVD", ps2br::ImageType::Auto, ps2br::NamingMode::TitleOnly}, {}, {});
+    expect(nested.size() == 1 && nested[0].destination_path == selected_dvd / "DVD" / "Arcana Heart.iso",
+           "selecting the DVD folder should not nest another DVD folder");
+
+    const fs::path lowercase = root / "lowercase-dvd";
+    fs::create_directories(lowercase / "dvd");
+    createFixture(lowercase / "dvd" / "arcana.iso", "SLUS_217.20");
+    auto reused = renamer.scan({lowercase, ps2br::ImageType::Auto, ps2br::NamingMode::TitleOnly}, {}, {});
+    expect(reused.size() == 1 && reused[0].destination_path.parent_path().filename() == "dvd",
+           "an existing lowercase dvd folder should be reused");
+}
 
 } // namespace
 
@@ -674,6 +843,7 @@ int main() {
     renamerTests(directory);
     safetyTests(directory);
     containerTests(directory);
+    autoMediaTests(directory);
     exampleImageTests();
 #if PS2BR_ENABLE_CHD && defined(PS2BR_CHDMAN_EXECUTABLE)
     chdRoundTripTest(directory);

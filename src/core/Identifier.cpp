@@ -92,6 +92,7 @@ Identification identifyGame(ByteReader& reader) {
         }
         game_id_begin += static_cast<std::ptrdiff_t>(ps1_precursor.size());
         uppercase_id = true;
+        result.playstation1 = true;
     }
 
     while (game_id_begin != system_cnf.end() && *game_id_begin == std::byte{0x5C}) {

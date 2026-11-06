@@ -1,6 +1,8 @@
 #include "core/IsoReader.h"
 
+#include <filesystem>
 #include <limits>
+#include <system_error>
 
 namespace ps2br {
 
@@ -8,6 +10,12 @@ IsoReader::IsoReader(const std::filesystem::path& path)
     : file_(path, std::ios::binary) {
     if (!file_) {
         open_error_ = "Could not open the image for reading";
+        return;
+    }
+    std::error_code ec;
+    const auto size = std::filesystem::file_size(path, ec);
+    if (!ec) {
+        logical_bytes_ = static_cast<std::uint64_t>(size);
     }
 }
 

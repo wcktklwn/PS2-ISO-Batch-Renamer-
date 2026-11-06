@@ -24,6 +24,8 @@ public:
     bool isOpen() const;
     const std::string& openError() const;
     bool read(std::uint64_t offset, std::span<std::byte> destination, std::string& error) override;
+    std::uint64_t logicalBytes() const override { return logical_bytes_; }
+    bool hasCdLayout() const override { return cd_layout_; }
 
 private:
     struct DataTrack {

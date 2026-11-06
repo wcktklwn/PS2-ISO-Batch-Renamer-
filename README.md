@@ -3,7 +3,8 @@
 A native desktop batch renamer for PlayStation 2 ISO, CHD, and ZSO images,
 plus POPStarter VCD images, by VajskiDs. V4 combines the V3 renamer and the
 former `GameName (game-id)` build into one Dear ImGui application for Windows
-and Linux.
+and Linux. Auto mode reads every supported image and sorts PlayStation 2 CDs,
+PlayStation 2 DVDs, and PlayStation discs into `CD`, `DVD`, and `POPS`.
 
 V4.1 is the definitive current release, replacing the earlier Windows-only
 variants. It uses the repository's current online database by default and
@@ -22,8 +23,9 @@ keeps a complete audited copy inside the application for offline use.
 - The database was compared against current GameDB-PS2, GDX, PCSX2, and
   Get_CONFIG snapshots. That audit produced 13,442 unique canonical IDs,
   no duplicate IDs, and no Windows-forbidden filename characters. The current
-  built-in file also includes two PlayStation serials for the bundled
-  POPStarter examples, for 13,444 records in total.
+  built-in file also includes the Redump PlayStation catalog, for 24,477
+  records in total. The bundled POPStarter examples remain `SLUS_005.98`
+  (Gex - Enter the Gecko) and `SCUS_945.55` (Jet Moto 3).
 - Reviewed fixes include the three AFL serials, **Looney Tunes - Space Race**,
   the cancelled Japanese **Wacky Races**, both corrected Konami rhythm-game
   serials, **FIFA 06**, and the **Steamboy** trial disc.
@@ -41,6 +43,10 @@ keeps a complete audited copy inside the application for offline use.
 - ISO, CHD, ZSO, and VCD files are read directly in-process. CHDs are not
   expanded into temporary ISO/CUE files, and ZSO blocks are decompressed in
   memory rather than written out as ISOs.
+- **Auto** scans every supported image. It moves PlayStation 2 CDs into
+  `CD`, PlayStation 2 DVDs into `DVD`, and PlayStation discs into `POPS`,
+  using the Redump media catalogs. The individual image types still rename
+  files in the folder where they were found.
 - The audited `gameid.txt` is compiled into the application. Use **Refresh
   online**, select a local/custom file, or restore the built-in copy with one
   click.
@@ -58,18 +64,38 @@ keeps a complete audited copy inside the application for offline use.
 
 1. Download the Windows `.exe` or Linux `.AppImage` from
    [Releases](https://github.com/L10N37/PS2-ISO-Batch-Renamer-/releases).
-2. Select or drag in the folder containing the games.
-3. Select **ISO**, **CHD**, **ZSO**, or **VCD**, and optionally tick
-   **Include game ID in filename**.
+2. Select or drag in the game folder. An Open PS2 Loader library can be the
+   folder that contains `CD`, `DVD`, and `POPS`.
+3. Leave **Auto** selected, or choose **ISO**, **CHD**, **ZSO**, or **VCD**.
+   Optionally tick **Include game ID in filename**.
 4. Check the database status. The app normally reports **Online database
    (GitHub)**; without internet it identifies the built-in fallback instead.
 5. Choose **Scan / Preview**. Review the proposed names and any failures in
    the application window.
 6. Choose **Apply Renames**.
 
-The scan is non-recursive: only images directly inside the selected folder are
-processed. A destination that already exists is reported as failed and is
-never replaced.
+The scan reads the selected folder and, unless that folder is already named
+`CD`, `DVD`, or `POPS`, the direct subfolders with those names. It does not
+walk any deeper. **ISO**, **CHD**, **ZSO**, and **VCD** rename a file in the
+folder where it was found. **Auto** moves a PlayStation 2 CD into `CD`, a
+PlayStation 2 DVD into `DVD`, and a PlayStation disc into `POPS` under the
+library root. Selecting one of those three folders uses its parent as the
+library root, so a disc is not placed in `CD/CD`.
+
+Media comes from the Redump catalogs embedded in `media_catalog.txt`:
+PlayStation 2 CD and DVD serials from the Redump PS2 dat (bin/cue is CD, iso
+is DVD; the same split as
+[the CD list](http://redump.org/discs/system/ps2/media/cd) and
+[the DVD list](http://redump.org/discs/system/ps2/media/dvd)), and PlayStation
+serials from
+[the PlayStation list](http://redump.org/discs/system/psx/). A `cdrom:\` boot
+path is PlayStation even when that serial is also a PlayStation 2 disc. A
+serial missing from the catalog stays in its current folder when the image is
+small enough to be either CD or DVD. A CHD with CD track metadata is a CD, a
+CHD without that metadata is a DVD, and any other image larger than an
+80-minute CD (737,280,000 bytes of user data) is a DVD.
+
+A destination that already exists is reported as failed and is never replaced.
 
 On Linux, make the downloaded AppImage executable before opening it:
 
@@ -80,10 +106,11 @@ chmod +x PS2-Batch-Renamer-V4-Linux-x86_64.AppImage
 ## Database
 
 The root [`gameid.txt`](gameid.txt) is the database embedded in a V4 build.
-The current file contains 13,444 records with 13,444 unique IDs and no
-duplicate built-in entries. Two of those records are the PlayStation serials
-from the bundled POPStarter examples: `SLUS_005.98` (Gex - Enter the Gecko)
-and `SCUS_945.55` (Jet Moto 3). The app checks the canonical
+The current file contains 24,477 records with 24,477 unique IDs and no
+duplicate built-in entries. PlayStation titles were added from the Redump
+PlayStation set. Existing PlayStation 2 titles were left unchanged, including
+`SLUS_005.98` (Gex - Enter the Gecko) and `SCUS_945.55` (Jet Moto 3). The app
+checks the canonical
 [`main/gameid.txt`](https://raw.githubusercontent.com/L10N37/PS2-ISO-Batch-Renamer-/main/gameid.txt)
 at startup and falls back to that embedded copy without blocking scanning.
 Select **Choose local gameid.txt...** to use a custom database for the current
