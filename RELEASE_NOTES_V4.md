@@ -1,20 +1,6 @@
-# PS2 Batch Renamer V4.1.0
+# PS2 Batch Renamer V4.2.0
 
-V4.1.0 adds a validated online-first database with an embedded offline fallback
-and replaces the historical title list with a reproducible, conservative audit.
-The original V3 disc-identification algorithm remains unchanged.
-
-## Online database with safe fallback
-
-- The app checks the repository's current `main/gameid.txt` automatically at
-  startup without blocking folder selection or scanning.
-- A download is accepted only after the entire database parses successfully,
-  contains at least 10,000 unique records, and remains below the 4 MiB limit.
-- HTTP errors, timeouts, duplicate IDs, malformed records, or a partial file
-  leave the embedded database active and produce a visible status message.
-- **Refresh online**, **Choose local gameid.txt...**, and **Reset to built-in**
-  controls make the active source explicit.
-- No downloaded database is written to the user's machine.
+V4.2.0 adds support for Auto, ZSO, VCD image types. Add subdirectory support for OPL structures. Added PS1 games to gameid.txt. Added sorting capability.
 
 ## V4.1 database audit
 

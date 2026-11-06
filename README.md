@@ -198,13 +198,13 @@ You do not need to boot Windows. After the audited branch has been reviewed,
 committed, and merged into a clean local `main`, run the non-publishing check:
 
 ```bash
-tools/release_from_fedora.sh 4.1.0
+tools/release_from_fedora.sh 4.2.0
 ```
 
 When that succeeds, explicitly publish:
 
 ```bash
-tools/release_from_fedora.sh --publish 4.1.0
+tools/release_from_fedora.sh --publish 4.2.0
 ```
 
 The second command pushes `main` and a new annotated `v4.1.0` tag. The tag
