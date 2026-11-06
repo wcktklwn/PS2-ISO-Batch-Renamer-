@@ -3,6 +3,8 @@
 #include "core/IsoReader.h"
 #include "core/OnlineDatabase.h"
 #include "core/Renamer.h"
+#include "core/VcdReader.h"
+#include "core/ZsoReader.h"
 #if PS2BR_ENABLE_CHD
 #include "core/ChdReader.h"
 #endif
@@ -10,14 +12,20 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
+
+#ifndef PS2BR_EXAMPLES_DIR
+#define PS2BR_EXAMPLES_DIR ""
+#endif
 
 namespace fs = std::filesystem;
 
@@ -93,8 +101,8 @@ void databaseTests() {
 
     ps2br::GameDatabase built_in;
     expect(built_in.loadBuiltIn(error), "built-in database should load: " + error);
-    expect(built_in.recordCount() == 13442, "built-in database should contain the audited record count");
-    expect(built_in.uniqueIdCount() == 13442, "every built-in database ID should be unique");
+    expect(built_in.recordCount() == 13444, "built-in database should contain the current record count");
+    expect(built_in.uniqueIdCount() == 13444, "every built-in database ID should be unique");
     expect(built_in.duplicateIdCount() == 0, "built-in database should contain no duplicate IDs");
     constexpr std::array<std::pair<std::string_view, std::string_view>, 62> audited_titles{{
         {"PCPX_966.49", "Gran Turismo 4 - First Preview"},
@@ -180,6 +188,12 @@ void databaseTests() {
     const auto* taito = built_in.findFirst("USGR_000.25");
     expect(taito != nullptr && taito->title == "Taito Legends 1 & 2",
            "USGR_000.25 should resolve to the unofficial Taito Legends 1 & 2 compilation");
+    const auto* gex = built_in.findFirst("SLUS_005.98");
+    expect(gex != nullptr && gex->title == "Gex - Enter the Gecko",
+           "POPStarter example serial SLUS_005.98 should resolve to Gex - Enter the Gecko");
+    const auto* jet_moto = built_in.findFirst("SCUS_945.55");
+    expect(jet_moto != nullptr && jet_moto->title == "Jet Moto 3",
+           "POPStarter example serial SCUS_945.55 should resolve to Jet Moto 3");
     const auto* retail_kingdom_hearts = built_in.findFirst("SLPM_666.75");
     expect(retail_kingdom_hearts != nullptr &&
                retail_kingdom_hearts->title == "Kingdom Hearts II - Final Mix +",
@@ -321,6 +335,272 @@ void safetyTests(const fs::path& root) {
     expect(fs::exists(collision_directory / "game.iso"), "the source must remain when a destination exists");
 }
 
+void putLe32(std::vector<unsigned char>& output, std::uint32_t value) {
+    output.push_back(static_cast<unsigned char>(value & 0xFFU));
+    output.push_back(static_cast<unsigned char>((value >> 8U) & 0xFFU));
+    output.push_back(static_cast<unsigned char>((value >> 16U) & 0xFFU));
+    output.push_back(static_cast<unsigned char>((value >> 24U) & 0xFFU));
+}
+
+std::vector<unsigned char> readBinary(const fs::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+}
+
+std::vector<unsigned char> lz4Literals(const unsigned char* data, std::size_t size) {
+    std::vector<unsigned char> output;
+    if (size >= 15) {
+        output.push_back(static_cast<unsigned char>(15U << 4U));
+        std::size_t extra = size - 15;
+        while (extra >= 255) {
+            output.push_back(255);
+            extra -= 255;
+        }
+        output.push_back(static_cast<unsigned char>(extra));
+    } else {
+        output.push_back(static_cast<unsigned char>(size << 4U));
+    }
+    output.insert(output.end(), data, data + size);
+    return output;
+}
+
+void writeZso(const fs::path& iso_path, const fs::path& zso_path, bool compress, std::uint8_t align) {
+    const std::vector<unsigned char> iso = readBinary(iso_path);
+    constexpr std::uint32_t block_size = 2048;
+    const std::uint64_t blocks = iso.size() / block_size;
+    const std::uint64_t align_mask = align == 0 ? 0 : (std::uint64_t{1} << align) - 1U;
+    std::vector<std::vector<unsigned char>> payloads(static_cast<std::size_t>(blocks));
+    std::uint64_t cursor = 24 + (blocks + 1) * 4;
+    std::vector<std::uint32_t> index(static_cast<std::size_t>(blocks + 1));
+    for (std::uint64_t block = 0; block < blocks; ++block) {
+        const unsigned char* bytes = iso.data() + block * block_size;
+        payloads[static_cast<std::size_t>(block)] = compress
+            ? lz4Literals(bytes, block_size)
+            : std::vector<unsigned char>(bytes, bytes + block_size);
+        if (align_mask != 0) {
+            const std::uint64_t padded = (cursor + payloads[static_cast<std::size_t>(block)].size() + align_mask) & ~align_mask;
+            payloads[static_cast<std::size_t>(block)].resize(static_cast<std::size_t>(padded - cursor), 0);
+        }
+        std::uint32_t entry = static_cast<std::uint32_t>(cursor >> align);
+        if (!compress) {
+            entry |= 0x80000000U;
+        }
+        index[static_cast<std::size_t>(block)] = entry;
+        cursor += payloads[static_cast<std::size_t>(block)].size();
+    }
+    index[static_cast<std::size_t>(blocks)] = static_cast<std::uint32_t>(cursor >> align);
+
+    std::vector<unsigned char> output;
+    output.insert(output.end(), {'Z', 'I', 'S', 'O'});
+    putLe32(output, 24);
+    putLe32(output, static_cast<std::uint32_t>(iso.size()));
+    putLe32(output, 0);
+    putLe32(output, block_size);
+    output.push_back(1);
+    output.push_back(align);
+    output.push_back(0);
+    output.push_back(0);
+    for (std::uint32_t entry : index) {
+        putLe32(output, entry);
+    }
+    for (const auto& payload : payloads) {
+        output.insert(output.end(), payload.begin(), payload.end());
+    }
+    std::ofstream file(zso_path, std::ios::binary);
+    file.write(reinterpret_cast<const char*>(output.data()), static_cast<std::streamsize>(output.size()));
+}
+
+void writeVcd(const fs::path& iso_path, const fs::path& vcd_path) {
+    const std::vector<unsigned char> iso = readBinary(iso_path);
+    std::ofstream file(vcd_path, std::ios::binary);
+    std::vector<unsigned char> header(0x100000, 0);
+    header[0] = 0x41;
+    header[2] = 0xA0;
+    header[7] = 0x01;
+    header[8] = 0x20;
+    header[0x400] = 'k';
+    header[0x401] = 'H';
+    header[0x402] = 'n';
+    header[0x403] = ' ';
+    file.write(reinterpret_cast<const char*>(header.data()), static_cast<std::streamsize>(header.size()));
+
+    const std::size_t sectors = iso.size() / 2048;
+    std::vector<unsigned char> raw(2352, 0);
+    for (std::size_t sector = 0; sector < sectors; ++sector) {
+        std::fill(raw.begin(), raw.end(), 0);
+        std::copy_n(iso.begin() + static_cast<std::ptrdiff_t>(sector * 2048), 2048, raw.begin() + 24);
+        file.write(reinterpret_cast<const char*>(raw.data()), static_cast<std::streamsize>(raw.size()));
+    }
+}
+
+void patchSystemCnf(const fs::path& path, std::string_view text) {
+    std::fstream file(path, std::ios::in | std::ios::out | std::ios::binary);
+    file.seekp(0x0180 * 2048);
+    std::string sector(2048, '\0');
+    std::copy(text.begin(), text.end(), sector.begin());
+    file.write(sector.data(), static_cast<std::streamsize>(sector.size()));
+}
+
+void containerTests(const fs::path& root) {
+    const fs::path directory = root / "containers";
+    fs::create_directories(directory);
+    const fs::path iso = directory / "fixture.iso";
+    createFixture(iso, "SLUS_217.20");
+
+    const fs::path plain_zso = directory / "plain.zso";
+    const fs::path compressed_zso = directory / "compressed.zso";
+    writeZso(iso, plain_zso, false, 0);
+    writeZso(iso, compressed_zso, true, 1);
+
+    ps2br::ZsoReader plain_reader(plain_zso);
+    expect(plain_reader.isOpen(), "plain ZSO should open: " + plain_reader.openError());
+    if (plain_reader.isOpen()) {
+        const auto identification = ps2br::identifyGame(plain_reader);
+        expect(identification.success, "plain ZSO should identify: " + identification.error);
+        expect(identification.game_id == "SLUS_217.20", "plain ZSO should preserve the ISO game ID");
+    }
+
+    ps2br::ZsoReader compressed_reader(compressed_zso);
+    expect(compressed_reader.isOpen(), "compressed ZSO should open: " + compressed_reader.openError());
+    if (compressed_reader.isOpen()) {
+        const auto identification = ps2br::identifyGame(compressed_reader);
+        expect(identification.success, "aligned LZ4 ZSO should identify: " + identification.error);
+        expect(identification.game_id == "SLUS_217.20", "aligned LZ4 ZSO should preserve the ISO game ID");
+    }
+
+    const fs::path bad_zso = directory / "bad.zso";
+    {
+        std::ofstream file(bad_zso, std::ios::binary);
+        const std::string header(32, 'X');
+        file.write(header.data(), static_cast<std::streamsize>(header.size()));
+    }
+    ps2br::ZsoReader bad_reader(bad_zso);
+    expect(!bad_reader.isOpen() && bad_reader.openError().find("ZISO") != std::string::npos,
+           "a non-ZISO file should fail with a ZISO header error");
+
+    const fs::path vcd = directory / "fixture.vcd";
+    writeVcd(iso, vcd);
+    ps2br::VcdReader vcd_reader(vcd);
+    expect(vcd_reader.isOpen(), "mode 2 VCD should open: " + vcd_reader.openError());
+    if (vcd_reader.isOpen()) {
+        const auto identification = ps2br::identifyGame(vcd_reader);
+        expect(identification.success, "mode 2 VCD should identify: " + identification.error);
+        expect(identification.game_id == "SLUS_217.20", "VCD cooked sectors should preserve the ISO game ID");
+    }
+
+    const fs::path ps1_iso = directory / "ps1.iso";
+    createFixture(ps1_iso, "SLUS_217.20");
+    patchSystemCnf(ps1_iso, "BOOT=cdrom:\\\\Slus_005.98;1\r\nTCB=4\r\nEVENT=10\r\n");
+    ps2br::IsoReader ps1_iso_reader(ps1_iso);
+    const auto ps1_iso_id = ps2br::identifyGame(ps1_iso_reader);
+    expect(ps1_iso_id.success && ps1_iso_id.game_id == "SLUS_005.98",
+           "mixed-case cdrom:\\\\ serials should normalize to the canonical ID");
+
+    const fs::path ps1_vcd = directory / "ps1.vcd";
+    writeVcd(ps1_iso, ps1_vcd);
+    ps2br::VcdReader ps1_vcd_reader(ps1_vcd);
+    expect(ps1_vcd_reader.isOpen(), "PlayStation VCD should open: " + ps1_vcd_reader.openError());
+    if (ps1_vcd_reader.isOpen()) {
+        const auto identification = ps2br::identifyGame(ps1_vcd_reader);
+        expect(identification.success && identification.game_id == "SLUS_005.98",
+               "PlayStation VCD should expose the normalized serial");
+    }
+
+    ps2br::GameDatabase database;
+    std::string error;
+    expect(database.loadText("SLUS_217.20 Arcana Heart\r\nSLUS_005.98 Gex - Enter the Gecko\r\n", "test", error),
+           "container database should load");
+    ps2br::Renamer renamer(database);
+    auto zso_results = renamer.scan(
+        {directory, ps2br::ImageType::Zso, ps2br::NamingMode::TitleAndGameId}, {}, {});
+    const auto ready_zso = std::count_if(zso_results.begin(), zso_results.end(), [](const auto& item) {
+        return item.status == ps2br::ResultStatus::Ready &&
+               item.destination_path.extension() == ".zso" &&
+               item.destination_path.filename() == "Arcana Heart (SLUS_217.20).zso";
+    });
+    const auto failed_zso = std::count_if(zso_results.begin(), zso_results.end(), [](const auto& item) {
+        return item.source_path.filename() == "bad.zso" && item.status == ps2br::ResultStatus::Failed;
+    });
+    expect(zso_results.size() == 3 && ready_zso == 2 && failed_zso == 1,
+           "ZSO scan should preview both valid images and keep the invalid image visible");
+
+    auto vcd_results = renamer.scan(
+        {directory, ps2br::ImageType::Vcd, ps2br::NamingMode::TitleOnly}, {}, {});
+    expect(vcd_results.size() == 2, "VCD scan should see both synthetic VCD files");
+    const auto renamed = renamer.apply(vcd_results, {}, {});
+    expect(renamed.renamed == 2, "both synthetic VCD files should rename");
+    expect(fs::exists(directory / "Arcana Heart.vcd"), "PlayStation 2 VCD should rename from the database title");
+    expect(fs::exists(directory / "Gex - Enter the Gecko.vcd"), "PlayStation VCD should rename from the normalized serial");
+}
+
+void exampleImageTests() {
+    const fs::path examples{PS2BR_EXAMPLES_DIR};
+    if (!fs::exists(examples)) {
+        std::cout << "Example image tests skipped; examples directory is absent.\n";
+        return;
+    }
+
+    ps2br::GameDatabase database;
+    std::string error;
+    expect(database.loadBuiltIn(error), "example lookup should use the built-in database: " + error);
+
+    struct Expected {
+        const char* filename;
+        ps2br::ImageType type;
+        const char* game_id;
+        const char* title;
+    };
+    constexpr std::array<Expected, 10> expected{{
+        {"PBPX_955.03.Gran Turismo 3 - A-spec (USA) (v1.10).zso", ps2br::ImageType::Zso,
+         "PBPX_955.03", "Gran Turismo 3 - A-Spec [PS2 Bundle]"},
+        {"SCUS_971.13.Ico.zso", ps2br::ImageType::Zso, "SCUS_971.13", "Ico"},
+        {"SCUS_971.25.Frequency.zso", ps2br::ImageType::Zso, "SCUS_971.25", "Frequency"},
+        {"SCUS_971.30.Hot Shots Golf 3 (USA).zso", ps2br::ImageType::Zso, "SCUS_971.30", "Hot Shots Golf 3"},
+        {"SCUS_974.02.Killzone (USA).zso", ps2br::ImageType::Zso, "SCUS_974.02", "Killzone"},
+        {"SLUS_200.17.Maximo - Ghosts to Glory [Beta].zso", ps2br::ImageType::Zso,
+         "SLUS_200.17", "Maximo - Ghosts to Glory"},
+        {"SLUS_200.41.ESPN International Track & Field.zso", ps2br::ImageType::Zso,
+         "SLUS_200.41", "ESPN International Track & Field"},
+        {"SLUS_203.12.Final Fantasy X (USA).zso", ps2br::ImageType::Zso, "SLUS_203.12", "Final Fantasy X"},
+        {"Gex - Enter the Gecko.vcd", ps2br::ImageType::Vcd, "SLUS_005.98", "Gex - Enter the Gecko"},
+        {"Jet Moto 3.vcd", ps2br::ImageType::Vcd, "SCUS_945.55", "Jet Moto 3"},
+    }};
+
+    bool saw_example = false;
+    for (const auto& item : expected) {
+        const fs::path path = examples / item.filename;
+        if (!fs::exists(path)) {
+            continue;
+        }
+        saw_example = true;
+        ps2br::Identification identification;
+        if (item.type == ps2br::ImageType::Zso) {
+            ps2br::ZsoReader reader(path);
+            expect(reader.isOpen(), std::string(item.filename) + " should open: " + reader.openError());
+            if (!reader.isOpen()) {
+                continue;
+            }
+            identification = ps2br::identifyGame(reader);
+        } else {
+            ps2br::VcdReader reader(path);
+            expect(reader.isOpen(), std::string(item.filename) + " should open: " + reader.openError());
+            if (!reader.isOpen()) {
+                continue;
+            }
+            identification = ps2br::identifyGame(reader);
+        }
+        expect(identification.success && identification.game_id == item.game_id,
+               std::string(item.filename) + " should identify as " + item.game_id +
+                   (identification.success ? "" : ": " + identification.error));
+        const auto* record = database.findFirst(item.game_id);
+        expect(record != nullptr && record->title == item.title,
+               std::string(item.game_id) + " should resolve to " + item.title);
+    }
+    if (!saw_example) {
+        std::cout << "Example image tests skipped; examples directory has no ZSO or VCD files.\n";
+    }
+}
+
 #if PS2BR_ENABLE_CHD && defined(PS2BR_CHDMAN_EXECUTABLE)
 void chdRoundTripTest(const fs::path& root) {
     const fs::path directory = root / "chd-round-trip";
@@ -363,6 +643,8 @@ int main() {
     identifierTests(directory);
     renamerTests(directory);
     safetyTests(directory);
+    containerTests(directory);
+    exampleImageTests();
 #if PS2BR_ENABLE_CHD && defined(PS2BR_CHDMAN_EXECUTABLE)
     chdRoundTripTest(directory);
 #endif

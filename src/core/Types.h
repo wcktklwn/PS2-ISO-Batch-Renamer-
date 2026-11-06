@@ -8,6 +8,8 @@ namespace ps2br {
 enum class ImageType {
     Iso,
     Chd,
+    Zso,
+    Vcd,
 };
 
 enum class NamingMode {

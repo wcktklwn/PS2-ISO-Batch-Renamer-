@@ -3,6 +3,8 @@
 #include "core/Identifier.h"
 #include "core/IsoReader.h"
 #include "core/PathText.h"
+#include "core/VcdReader.h"
+#include "core/ZsoReader.h"
 #if PS2BR_ENABLE_CHD
 #include "core/ChdReader.h"
 #endif
@@ -27,12 +29,22 @@ bool isCancelled(const std::atomic_bool* cancel) {
     return cancel != nullptr && cancel->load();
 }
 
+const char* fileExtension(ImageType type) {
+    switch (type) {
+    case ImageType::Iso: return ".iso";
+    case ImageType::Chd: return ".chd";
+    case ImageType::Zso: return ".zso";
+    case ImageType::Vcd: return ".vcd";
+    }
+    return ".iso";
+}
+
 std::string filenameFor(const DatabaseRecord& record, NamingMode mode, ImageType type) {
     std::string filename = record.title;
     if (mode == NamingMode::TitleAndGameId) {
         filename += " (" + record.game_id + ")";
     }
-    filename += (type == ImageType::Iso ? ".iso" : ".chd");
+    filename += fileExtension(type);
     return filename;
 }
 
@@ -58,32 +70,46 @@ std::string portableFilenameError(std::string_view filename) {
     return {};
 }
 
-std::unique_ptr<ByteReader> openReader(const std::filesystem::path& path, ImageType type, std::string& error) {
-    if (type == ImageType::Iso) {
-        auto reader = std::make_unique<IsoReader>(path);
-        if (!reader->isOpen()) {
-            error = reader->openError();
-            return nullptr;
-        }
-        return reader;
-    }
-#if PS2BR_ENABLE_CHD
-    auto reader = std::make_unique<ChdReader>(path);
+template <typename Reader>
+std::unique_ptr<ByteReader> openChecked(const std::filesystem::path& path, std::string& error) {
+    auto reader = std::make_unique<Reader>(path);
     if (!reader->isOpen()) {
         error = reader->openError();
         return nullptr;
     }
     return reader;
+}
+
+std::unique_ptr<ByteReader> openReader(const std::filesystem::path& path, ImageType type, std::string& error) {
+    switch (type) {
+    case ImageType::Iso:
+        return openChecked<IsoReader>(path, error);
+    case ImageType::Zso:
+        return openChecked<ZsoReader>(path, error);
+    case ImageType::Vcd:
+        return openChecked<VcdReader>(path, error);
+    case ImageType::Chd:
+#if PS2BR_ENABLE_CHD
+        return openChecked<ChdReader>(path, error);
 #else
-    error = "This build does not include CHD support";
-    return nullptr;
+        error = "This build does not include CHD support";
+        return nullptr;
 #endif
+    }
+    error = "Unsupported image type";
+    return nullptr;
 }
 
 } // namespace
 
 const char* toString(ImageType type) {
-    return type == ImageType::Iso ? "ISO" : "CHD";
+    switch (type) {
+    case ImageType::Iso: return "ISO";
+    case ImageType::Chd: return "CHD";
+    case ImageType::Zso: return "ZSO";
+    case ImageType::Vcd: return "VCD";
+    }
+    return "Unknown";
 }
 
 const char* toString(ResultStatus status) {
@@ -108,7 +134,7 @@ std::vector<RenameResult> Renamer::scan(
 
     std::vector<std::filesystem::path> paths;
     std::error_code ec;
-    const std::string wanted_extension = options.image_type == ImageType::Iso ? ".iso" : ".chd";
+    const std::string wanted_extension = fileExtension(options.image_type);
 
     for (std::filesystem::directory_iterator it(options.folder, ec), end; !ec && it != end; it.increment(ec)) {
         if (it->is_regular_file(ec) && lowerAscii(pathToUtf8(it->path().extension())) == wanted_extension) {

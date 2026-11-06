@@ -2085,6 +2085,7 @@ SCUS_901.74 Disney - Pixar Toy Story 3
 SCUS_906.82 Gran Turismo 4
 SCUS_911.97 War of the Monsters
 SCUS_943.46 SingStar Latino
+SCUS_945.55 Jet Moto 3
 SCUS_946.77 989 Sports 2003 Demo Disc
 SCUS_970.95 Network Adaptor Start-Up Disc v2.0
 SCUS_970.97 Network Adaptor Start-Up Disc
@@ -11316,6 +11317,7 @@ SLPS_999.99 Without Warning
 SLSP_732.20 Ultraman - PlayStation 2 the Best
 SLUF_209.21 ESPN NHL 2K5
 SLUS_000.00 Tekken 4
+SLUS_005.98 Gex - Enter the Gecko
 SLUS_100.10 Explosion Royale
 SLUS_123.45 XIII
 SLUS_200.00 Kung Fu Fighting

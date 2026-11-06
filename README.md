@@ -1,8 +1,9 @@
 # PS2 Batch Renamer V4.1
 
-A native desktop batch renamer for PlayStation 2 ISO and CHD images by
-VajskiDs. V4 combines the V3 renamer and the former `GameName (game-id)` build
-into one Dear ImGui application for Windows and Linux.
+A native desktop batch renamer for PlayStation 2 ISO, CHD, and ZSO images,
+plus POPStarter VCD images, by VajskiDs. V4 combines the V3 renamer and the
+former `GameName (game-id)` build into one Dear ImGui application for Windows
+and Linux.
 
 V4.1 is the definitive current release, replacing the earlier Windows-only
 variants. It uses the repository's current online database by default and
@@ -19,8 +20,10 @@ keeps a complete audited copy inside the application for offline use.
   app continues with its built-in database. The downloaded text never replaces
   the repository file or writes a cache to the user's machine.
 - The database was compared against current GameDB-PS2, GDX, PCSX2, and
-  Get_CONFIG snapshots. The built-in result has 13,442 unique canonical IDs,
-  no duplicate IDs, and no Windows-forbidden filename characters.
+  Get_CONFIG snapshots. That audit produced 13,442 unique canonical IDs,
+  no duplicate IDs, and no Windows-forbidden filename characters. The current
+  built-in file also includes two PlayStation serials for the bundled
+  POPStarter examples, for 13,444 records in total.
 - Reviewed fixes include the three AFL serials, **Looney Tunes - Space Race**,
   the cancelled Japanese **Wacky Races**, both corrected Konami rhythm-game
   serials, **FIFA 06**, and the **Steamboy** trial disc.
@@ -33,14 +36,15 @@ keeps a complete audited copy inside the application for offline use.
 - One self-contained Windows executable with an embedded application icon; no
   .NET, console window, extraction, batch files, or helper executables.
 - Native Linux application; Wine is not required.
-- ISO and CHD files are read directly in-process. CHDs are not expanded into
-  temporary ISO/CUE files.
+- ISO, CHD, ZSO, and VCD files are read directly in-process. CHDs are not
+  expanded into temporary ISO/CUE files, and ZSO blocks are decompressed in
+  memory rather than written out as ISOs.
 - The audited `gameid.txt` is compiled into the application. Use **Refresh
   online**, select a local/custom file, or restore the built-in copy with one
   click.
 - Optional **Include game ID in filename** mode produces
-  `Game Title (SLUS_123.45).iso` or `.chd`. With the option off, V3-style
-  `Game Title.iso` / `.chd` names are used.
+  `Game Title (SLUS_123.45).iso`, `.chd`, `.zso`, or `.vcd`. With the option
+  off, V3-style `Game Title.iso` / `.chd` / `.zso` / `.vcd` names are used.
 - Scan/preview and rename are separate steps. Nothing is overwritten.
 - Every file appears in a live results table and activity view while work is
   running. Failed items produce a persistent red warning, a review prompt,
@@ -53,8 +57,8 @@ keeps a complete audited copy inside the application for offline use.
 1. Download the Windows `.exe` or Linux `.AppImage` from
    [Releases](https://github.com/L10N37/PS2-ISO-Batch-Renamer-/releases).
 2. Select or drag in the folder containing the games.
-3. Select **ISO** or **CHD**, and optionally tick **Include game ID in
-   filename**.
+3. Select **ISO**, **CHD**, **ZSO**, or **VCD**, and optionally tick
+   **Include game ID in filename**.
 4. Check the database status. The app normally reports **Online database
    (GitHub)**; without internet it identifies the built-in fallback instead.
 5. Choose **Scan / Preview**. Review the proposed names and any failures in
@@ -74,8 +78,10 @@ chmod +x PS2-Batch-Renamer-V4-Linux-x86_64.AppImage
 ## Database
 
 The root [`gameid.txt`](gameid.txt) is the database embedded in a V4 build.
-V4.1 contains 13,442 records with 13,442 unique IDs and no duplicate built-in
-entries. The app checks the canonical
+The current file contains 13,444 records with 13,444 unique IDs and no
+duplicate built-in entries. Two of those records are the PlayStation serials
+from the bundled POPStarter examples: `SLUS_005.98` (Gex - Enter the Gecko)
+and `SCUS_945.55` (Jet Moto 3). The app checks the canonical
 [`main/gameid.txt`](https://raw.githubusercontent.com/L10N37/PS2-ISO-Batch-Renamer-/main/gameid.txt)
 at startup and falls back to that embedded copy without blocking scanning.
 Select **Choose local gameid.txt...** to use a custom database for the current
@@ -127,7 +133,15 @@ The proven handwritten identification method from the earlier releases is
 preserved: V4 reads the root-directory sector stored at `0x80A4`, searches the
 2,048-byte root directory for `EM.CNF`, follows the original extent bytes to
 `SYSTEM.CNF`, finds `0:\`, and reads the following 11-byte game ID. The same
-logic is used for ISO and for the cooked disc data exposed by a CHD.
+logic is used for ISO, CHD, ZSO, and VCD.
+
+ZSO input is a ZISO image. Each block is restored with LZ4, or copied through
+when the index marks it uncompressed, and the identifier then sees the original
+ISO bytes. VCD input is a POPStarter image: the 1 MiB header is skipped and
+the 2,048-byte user data is read out of each 2,352-byte sector. PlayStation
+`SYSTEM.CNF` lines that use `cdrom:\` instead of `cdrom0:\` are accepted.
+Extra backslashes are skipped, and a mixed-case serial is uppercased to the
+canonical ID.
 
 See [`docs/algorithm.md`](docs/algorithm.md) for the parity notes and regression
 test coverage.

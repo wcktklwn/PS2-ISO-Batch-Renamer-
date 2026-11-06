@@ -60,3 +60,5 @@ SLPM_650.49	Beatmania II DX 5th Style - New Songs Collection	https://github.com/
 SLPM_650.52	Gitadora! GuitarFreaks 4th Mix & DrumMania 3rd Mix	https://github.com/PCSX2/pcsx2/blob/master/bin/resources/GameIndex.yaml	This serial belongs to Gitadora, not Beatmania.
 SLKA_253.23	FIFA 06	https://github.com/PCSX2/pcsx2/blob/master/bin/resources/GameIndex.yaml	Corrected unrelated SSX title.
 SLPM_602.65	Steamboy [Trial]	https://github.com/PCSX2/pcsx2/blob/master/bin/resources/GameIndex.yaml	Corrected unrelated catalogue title.
+SCUS_945.55	Jet Moto 3	examples/Jet Moto 3.vcd	POPStarter VCD serial SCUS_945.55 from the bundled example image.
+SLUS_005.98	Gex - Enter the Gecko	examples/Gex - Enter the Gecko.vcd	POPStarter VCD serial Slus_005.98 from the bundled example image, stored in canonical uppercase.

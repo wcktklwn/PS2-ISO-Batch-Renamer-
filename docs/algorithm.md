@@ -24,12 +24,30 @@ For CHD input, libchdr exposes the cooked 2,048-byte data sectors directly to
 the same identifier. V4 does not extract the complete image or invoke
 `chdman.exe`, `ps2_chd.exe`, or `chd_ps2_renamer.exe`.
 
+For ZSO input, the reader follows the ZISO index. The high bit of an index
+entry marks an uncompressed block. Otherwise the block is raw LZ4, which is
+decompressed to the original ISO bytes. Index alignment shifts, used when the
+source ISO is larger than 2 GiB, are applied. The identifier then sees the
+same byte stream as the source ISO. The image is not expanded onto disk.
+
+For VCD input, the 1 MiB POPStarter header is skipped. The reader looks for
+the ISO 9660 `CD001` descriptor and accepts 2,352-byte Mode 2 Form 1 sectors
+(user data at offset 24), 2,352-byte Mode 1 sectors (user data at offset 16),
+or cooked 2,048-byte sectors. Cooked 2,048-byte sectors are exposed to the
+same identifier.
+
+PlayStation discs used by POPStarter store the serial after `cdrom:\` rather
+than `cdrom0:\`. Some images double the backslash or use mixed case
+(`Slus_005.98`). When `0:\` is absent, the 11 bytes after `:\` are read,
+extra backslashes are skipped, and the serial is uppercased. A PlayStation 2
+`cdrom0:\` serial is still taken from the original `0:\` match.
+
 ## Filename parity
 
 | Option | Result |
 |---|---|
-| Include game ID off | `Database Title.iso` or `Database Title.chd` |
-| Include game ID on | `Database Title (GAME_ID).iso` or `.chd` |
+| Include game ID off | `Database Title` plus `.iso`, `.chd`, `.zso`, or `.vcd` |
+| Include game ID on | `Database Title (GAME_ID)` plus the source extension |
 
 When a database is loaded, V4 decodes the legacy batch-file escape `^!` as
 `!` and removes trailing spaces or tabs used as line padding. These are storage
@@ -50,4 +68,8 @@ The automated core tests verify:
 - malformed images and missing IDs remaining visible as failures;
 - destinations never being overwritten;
 - no automatic `failed.txt` or `PS2_iso_files.txt` output;
-- an ISO-to-CHD round trip when `chdman` is available in the test environment.
+- an ISO-to-CHD round trip when `chdman` is available in the test environment;
+- plain and LZ4 ZSO blocks, including an alignment shift;
+- VCD Mode 2/2352 cooked sectors;
+- POPStarter `cdrom:\` serials, doubled backslashes, and mixed case;
+- the bundled example ZSO and VCD images when `examples/` is present.

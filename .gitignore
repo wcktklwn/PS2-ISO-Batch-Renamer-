@@ -6,3 +6,4 @@
 *.VC.db
 .DS_Store
 __pycache__/
+/examples

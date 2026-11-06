@@ -259,7 +259,7 @@ void App::drawHeader() {
     ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
     ImGui::TextColored(kCyan, "PS2 BATCH RENAMER");
     ImGui::SameLine();
-    ImGui::TextDisabled("V4.1  |  Native ISO + CHD");
+    ImGui::TextDisabled("V4.1  |  Native ISO, CHD, ZSO + VCD");
     ImGui::SameLine(ImGui::GetContentRegionMax().x - 55.0F);
     if (ImGui::SmallButton("About")) show_about_ = true;
     ImGui::PopFont();
@@ -290,7 +290,17 @@ void App::drawSetupPanel() {
         image_type_ = ImageType::Chd;
         invalidatePreview("Image type changed; scan again to create a new preview.");
     }
-    ImGui::SameLine(285.0F);
+    ImGui::SameLine();
+    if (ImGui::RadioButton("ZSO", image_type_ == ImageType::Zso) && image_type_ != ImageType::Zso) {
+        image_type_ = ImageType::Zso;
+        invalidatePreview("Image type changed; scan again to create a new preview.");
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("VCD", image_type_ == ImageType::Vcd) && image_type_ != ImageType::Vcd) {
+        image_type_ = ImageType::Vcd;
+        invalidatePreview("Image type changed; scan again to create a new preview.");
+    }
+    ImGui::SameLine();
     bool include_id = naming_mode_ == NamingMode::TitleAndGameId;
     if (ImGui::Checkbox("Include game ID in filename", &include_id)) {
         naming_mode_ = include_id ? NamingMode::TitleAndGameId : NamingMode::TitleOnly;

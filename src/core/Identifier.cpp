@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 
@@ -73,14 +74,29 @@ Identification identifyGame(ByteReader& reader) {
     constexpr std::array<std::byte, 3> id_precursor{
         std::byte{0x30}, std::byte{0x3A}, std::byte{0x5C},
     };
-    const auto precursor = std::search(system_cnf.begin(), system_cnf.end(),
-                                       id_precursor.begin(), id_precursor.end());
-    if (precursor == system_cnf.end()) {
-        result.error = "Game-ID precursor 0:\\ was not found in SYSTEM.CNF";
-        return result;
+    auto game_id_begin = std::search(system_cnf.begin(), system_cnf.end(),
+                                     id_precursor.begin(), id_precursor.end());
+    bool uppercase_id = false;
+    if (game_id_begin != system_cnf.end()) {
+        game_id_begin += static_cast<std::ptrdiff_t>(id_precursor.size());
+    } else {
+        // POPStarter VCDs are PlayStation discs. Their SYSTEM.CNF uses
+        // "cdrom:\" rather than "cdrom0:\", sometimes with a doubled
+        // backslash and a mixed-case serial.
+        constexpr std::array<std::byte, 2> ps1_precursor{std::byte{0x3A}, std::byte{0x5C}};
+        game_id_begin = std::search(system_cnf.begin(), system_cnf.end(),
+                                    ps1_precursor.begin(), ps1_precursor.end());
+        if (game_id_begin == system_cnf.end()) {
+            result.error = "Game-ID precursor 0:\\ was not found in SYSTEM.CNF";
+            return result;
+        }
+        game_id_begin += static_cast<std::ptrdiff_t>(ps1_precursor.size());
+        uppercase_id = true;
     }
 
-    const auto game_id_begin = precursor + static_cast<std::ptrdiff_t>(id_precursor.size());
+    while (game_id_begin != system_cnf.end() && *game_id_begin == std::byte{0x5C}) {
+        ++game_id_begin;
+    }
     if (std::distance(game_id_begin, system_cnf.end()) < 11) {
         result.error = "SYSTEM.CNF ended before the complete game ID";
         return result;
@@ -88,7 +104,11 @@ Identification identifyGame(ByteReader& reader) {
 
     result.game_id.reserve(11);
     for (auto it = game_id_begin; it != game_id_begin + 11; ++it) {
-        result.game_id.push_back(static_cast<char>(byteValue(*it)));
+        unsigned char value = byteValue(*it);
+        if (uppercase_id) {
+            value = static_cast<unsigned char>(std::toupper(value));
+        }
+        result.game_id.push_back(static_cast<char>(value));
     }
     result.success = true;
     return result;

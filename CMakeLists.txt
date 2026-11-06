@@ -46,6 +46,9 @@ add_library(ps2br_core
     src/core/Database.cpp
     src/core/OnlineDatabase.cpp
     src/core/IsoReader.cpp
+    src/core/ZsoReader.cpp
+    src/core/VcdReader.cpp
+    src/core/Lz4.cpp
     src/core/Identifier.cpp
     src/core/PathText.cpp
     src/core/Renamer.cpp
@@ -155,6 +158,8 @@ if(PS2BR_BUILD_TESTS)
     enable_testing()
     add_executable(ps2br-core-tests tests/core_tests.cpp)
     target_link_libraries(ps2br-core-tests PRIVATE ps2br_core)
+    target_compile_definitions(ps2br-core-tests PRIVATE
+        PS2BR_EXAMPLES_DIR="${CMAKE_SOURCE_DIR}/examples")
     ps2br_enable_warnings(ps2br-core-tests)
     if(PS2BR_ENABLE_CHD AND UNIX)
         find_program(PS2BR_CHDMAN_EXECUTABLE chdman HINTS /usr/games)
