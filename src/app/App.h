@@ -79,7 +79,15 @@ private:
     bool matchesFilter(const RenameResult& result) const;
 
     SDL_Window* window_ = nullptr;
+#if defined(_WIN32)
+    // Windows Server ships OpenGL 1.1 unless a vendor ICD is installed.
+    // Direct3D 11, then the SDL software renderer, covers that case.
+    SDL_Renderer* renderer_ = nullptr;
+#else
     SDL_GLContext gl_context_ = nullptr;
+#endif
+    bool imgui_platform_ready_ = false;
+    bool imgui_renderer_ready_ = false;
 
     GameDatabase database_;
     std::string folder_path_;

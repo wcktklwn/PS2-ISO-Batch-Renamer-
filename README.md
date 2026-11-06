@@ -34,7 +34,9 @@ keeps a complete audited copy inside the application for offline use.
 ## V4 application highlights
 
 - One self-contained Windows executable with an embedded application icon; no
-  .NET, console window, extraction, batch files, or helper executables.
+  .NET, console window, extraction, batch files, or helper executables. The
+  window is drawn with Direct3D 11, or SDL's software renderer when Direct3D
+  is unavailable, so Windows Server does not need a desktop OpenGL driver.
 - Native Linux application; Wine is not required.
 - ISO, CHD, ZSO, and VCD files are read directly in-process. CHDs are not
   expanded into temporary ISO/CUE files, and ZSO blocks are decompressed in

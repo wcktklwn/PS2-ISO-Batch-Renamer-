@@ -109,7 +109,12 @@ if(PS2BR_BUILD_GUI)
     )
     FetchContent_MakeAvailable(imgui)
 
-    find_package(OpenGL REQUIRED)
+    set(PS2BR_IMGUI_RENDERER_BACKEND "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp")
+    if(WIN32)
+        set(PS2BR_IMGUI_RENDERER_BACKEND "${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer3.cpp")
+    else()
+        find_package(OpenGL REQUIRED)
+    endif()
     add_library(ps2br_imgui STATIC
         "${imgui_SOURCE_DIR}/imgui.cpp"
         "${imgui_SOURCE_DIR}/imgui_demo.cpp"
@@ -118,14 +123,17 @@ if(PS2BR_BUILD_GUI)
         "${imgui_SOURCE_DIR}/imgui_widgets.cpp"
         "${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp"
         "${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp"
-        "${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp"
+        "${PS2BR_IMGUI_RENDERER_BACKEND}"
     )
     target_include_directories(ps2br_imgui PUBLIC
         "${imgui_SOURCE_DIR}"
         "${imgui_SOURCE_DIR}/backends"
         "${imgui_SOURCE_DIR}/misc/cpp"
     )
-    target_link_libraries(ps2br_imgui PUBLIC SDL3::SDL3-static OpenGL::GL)
+    target_link_libraries(ps2br_imgui PUBLIC SDL3::SDL3-static)
+    if(NOT WIN32)
+        target_link_libraries(ps2br_imgui PUBLIC OpenGL::GL)
+    endif()
 
     add_executable(ps2-batch-renamer WIN32
         src/app/App.cpp

@@ -5,17 +5,28 @@
 #include "third_party_notices.h"
 
 #include <imgui.h>
-#include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_stdlib.h>
-
+#if defined(_WIN32)
+#include <imgui_impl_sdlrenderer3.h>
+#else
+#include <imgui_impl_opengl3.h>
 #include <SDL3/SDL_opengl.h>
+#endif
 
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdio>
+#include <string>
 #include <system_error>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
 
 namespace ps2br {
 namespace {
@@ -49,6 +60,14 @@ void setV4Style() {
     style.Colors[ImGuiCol_SliderGrab] = kCyan;
 }
 
+bool failStartup(const std::string& message) {
+    std::fprintf(stderr, "%s\n", message.c_str());
+#if defined(_WIN32)
+    MessageBoxA(nullptr, message.c_str(), "PS2 Batch Renamer V4.1", MB_OK | MB_ICONERROR);
+#endif
+    return false;
+}
+
 } // namespace
 
 App::App() = default;
@@ -62,13 +81,27 @@ App::~App() {
         online_database_worker_.join();
     }
     if (ImGui::GetCurrentContext() != nullptr) {
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplSDL3_Shutdown();
+        if (imgui_renderer_ready_) {
+#if defined(_WIN32)
+            ImGui_ImplSDLRenderer3_Shutdown();
+#else
+            ImGui_ImplOpenGL3_Shutdown();
+#endif
+        }
+        if (imgui_platform_ready_) {
+            ImGui_ImplSDL3_Shutdown();
+        }
         ImGui::DestroyContext();
     }
+#if defined(_WIN32)
+    if (renderer_ != nullptr) {
+        SDL_DestroyRenderer(renderer_);
+    }
+#else
     if (gl_context_ != nullptr) {
         SDL_GL_DestroyContext(gl_context_);
     }
+#endif
     if (window_ != nullptr) {
         SDL_DestroyWindow(window_);
     }
@@ -77,10 +110,26 @@ App::~App() {
 
 bool App::initialize() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
-        std::fprintf(stderr, "SDL initialization failed: %s\n", SDL_GetError());
-        return false;
+        return failStartup(std::string("SDL initialization failed: ") + SDL_GetError());
     }
 
+#if defined(_WIN32)
+    window_ = SDL_CreateWindow(
+        "PS2 Batch Renamer V4.1 - VajskiDs",
+        1100,
+        720,
+        SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    if (window_ == nullptr) {
+        return failStartup(std::string("Window creation failed: ") + SDL_GetError());
+    }
+    SDL_SetWindowMinimumSize(window_, 900, 600);
+
+    renderer_ = SDL_CreateRenderer(window_, "direct3d11,direct3d12,software");
+    if (renderer_ == nullptr) {
+        return failStartup(std::string("Renderer creation failed: ") + SDL_GetError());
+    }
+    SDL_SetRenderVSync(renderer_, 1);
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -95,18 +144,17 @@ bool App::initialize() {
         720,
         SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (window_ == nullptr) {
-        std::fprintf(stderr, "Window creation failed: %s\n", SDL_GetError());
-        return false;
+        return failStartup(std::string("Window creation failed: ") + SDL_GetError());
     }
     SDL_SetWindowMinimumSize(window_, 900, 600);
 
     gl_context_ = SDL_GL_CreateContext(window_);
     if (gl_context_ == nullptr) {
-        std::fprintf(stderr, "OpenGL context creation failed: %s\n", SDL_GetError());
-        return false;
+        return failStartup(std::string("OpenGL context creation failed: ") + SDL_GetError());
     }
     SDL_GL_MakeCurrent(window_, gl_context_);
     SDL_GL_SetSwapInterval(1);
+#endif
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -115,14 +163,26 @@ bool App::initialize() {
     io.IniFilename = nullptr;
     setV4Style();
 
+#if defined(_WIN32)
+    if (!ImGui_ImplSDL3_InitForSDLRenderer(window_, renderer_)) {
+        return failStartup("ImGui SDL backend initialization failed.");
+    }
+    imgui_platform_ready_ = true;
+    if (!ImGui_ImplSDLRenderer3_Init(renderer_)) {
+        return failStartup("ImGui renderer initialization failed.");
+    }
+    imgui_renderer_ready_ = true;
+    SDL_ShowWindow(window_);
+#else
     if (!ImGui_ImplSDL3_InitForOpenGL(window_, gl_context_)) {
-        std::fprintf(stderr, "ImGui SDL backend initialization failed.\n");
-        return false;
+        return failStartup("ImGui SDL backend initialization failed.");
     }
+    imgui_platform_ready_ = true;
     if (!ImGui_ImplOpenGL3_Init("#version 150")) {
-        std::fprintf(stderr, "ImGui OpenGL backend initialization failed.\n");
-        return false;
+        return failStartup("ImGui OpenGL backend initialization failed.");
     }
+    imgui_renderer_ready_ = true;
+#endif
 
     std::string error;
     if (!database_.loadBuiltIn(error)) {
@@ -143,13 +203,32 @@ int App::run() {
         processDialogResults();
         reapWorker();
         reapOnlineDatabaseWorker();
+        if (done) {
+            break;
+        }
+        if ((SDL_GetWindowFlags(window_) & SDL_WINDOW_MINIMIZED) != 0) {
+            SDL_Delay(10);
+            continue;
+        }
 
+#if defined(_WIN32)
+        ImGui_ImplSDLRenderer3_NewFrame();
+#else
         ImGui_ImplOpenGL3_NewFrame();
+#endif
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
         draw();
         ImGui::Render();
 
+#if defined(_WIN32)
+        const ImGuiIO& io = ImGui::GetIO();
+        SDL_SetRenderScale(renderer_, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+        SDL_SetRenderDrawColorFloat(renderer_, 0.035F, 0.041F, 0.052F, 1.0F);
+        SDL_RenderClear(renderer_);
+        ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer_);
+        SDL_RenderPresent(renderer_);
+#else
         int width = 0;
         int height = 0;
         SDL_GetWindowSizeInPixels(window_, &width, &height);
@@ -158,6 +237,7 @@ int App::run() {
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window_);
+#endif
     }
     return 0;
 }
