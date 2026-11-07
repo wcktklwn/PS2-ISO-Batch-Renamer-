@@ -1,10 +1,9 @@
-# PS2 Batch Renamer V4
+# PS2 Batch Renamer V4.1.1
 
-## Changes after V4.1.1
+## Changes after V4.1.0
 
 The changes below are in the current source, on top of the V4.1.0 release
-recorded further down. The application window still reads V4.1. The committed
-project version in `CMakeLists.txt` is 4.2.0.
+recorded further down.
 
 ### ZSO and VCD
 
