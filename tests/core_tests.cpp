@@ -359,6 +359,35 @@ void renamerTests(const fs::path& directory) {
                sorted_results[0].source_path.filename() == "alpha.iso" &&
                sorted_results[1].source_path.filename() == "zeta.iso",
            "Sort files should list names from A to Z");
+    const fs::path natural_directory = directory / "natural-names";
+    fs::create_directories(natural_directory);
+    createFixture(natural_directory / "file10.iso", "SLUS_217.20");
+    createFixture(natural_directory / "zeta.iso", "SLUS_217.20");
+    createFixture(natural_directory / "file2.iso", "SLUS_217.20");
+    createFixture(natural_directory / "Alpha.iso", "SLUS_217.20");
+    ps2br::ScanOptions natural_options{natural_directory, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly, true};
+    auto natural_results = renamer.scan(natural_options, {}, {});
+    expect(natural_results.size() == 4 &&
+               natural_results[0].source_path.filename() == "Alpha.iso" &&
+               natural_results[1].source_path.filename() == "file2.iso" &&
+               natural_results[2].source_path.filename() == "file10.iso" &&
+               natural_results[3].source_path.filename() == "zeta.iso",
+           "Sort files should ignore case and order numbers by value");
+    ps2br::sortResultsByFolderOrder(natural_results);
+    std::vector<fs::path> natural_folder_order;
+    for (const auto& entry : fs::directory_iterator(natural_directory)) {
+        if (entry.path().extension() == ".iso") natural_folder_order.push_back(entry.path().filename());
+    }
+    bool restored_folder_order = natural_results.size() == natural_folder_order.size();
+    for (std::size_t index = 0; restored_folder_order && index < natural_folder_order.size(); ++index) {
+        restored_folder_order = natural_results[index].source_path.filename() == natural_folder_order[index];
+    }
+    expect(restored_folder_order, "turning sort off should restore the folder's own order");
+    ps2br::sortResultsByFilename(natural_results);
+    expect(natural_results.size() == 4 &&
+               natural_results[0].source_path.filename() == "Alpha.iso" &&
+               natural_results[3].source_path.filename() == "zeta.iso",
+           "turning sort back on should order the current list again");
     ps2br::ScanOptions unsorted_options = sorted_options;
     unsorted_options.sort_files = false;
     auto unsorted_results = renamer.scan(unsorted_options, {}, {});

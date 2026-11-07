@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <system_error>
 
 namespace ps2br {
@@ -26,6 +27,66 @@ std::string lowerAscii(std::string text) {
         return static_cast<char>(std::tolower(value));
     });
     return text;
+}
+
+// Case-insensitive order with digit runs compared by numeric value.
+// Naturally equal names fall back to raw byte order so the relation stays strict.
+int naturalCompare(std::string_view left, std::string_view right) {
+    std::size_t i = 0;
+    std::size_t j = 0;
+    while (i < left.size() && j < right.size()) {
+        const unsigned char lc = static_cast<unsigned char>(left[i]);
+        const unsigned char rc = static_cast<unsigned char>(right[j]);
+        if (std::isdigit(lc) && std::isdigit(rc)) {
+            while (i < left.size() && left[i] == '0') {
+                ++i;
+            }
+            while (j < right.size() && right[j] == '0') {
+                ++j;
+            }
+            const std::size_t left_digits = i;
+            const std::size_t right_digits = j;
+            while (i < left.size() && std::isdigit(static_cast<unsigned char>(left[i]))) {
+                ++i;
+            }
+            while (j < right.size() && std::isdigit(static_cast<unsigned char>(right[j]))) {
+                ++j;
+            }
+            const std::size_t left_length = i - left_digits;
+            const std::size_t right_length = j - right_digits;
+            if (left_length != right_length) {
+                return left_length < right_length ? -1 : 1;
+            }
+            if (const int compared = left.compare(left_digits, left_length, right, right_digits, right_length);
+                compared != 0) {
+                return compared < 0 ? -1 : 1;
+            }
+            continue;
+        }
+        const char lfold = static_cast<char>(std::tolower(lc));
+        const char rfold = static_cast<char>(std::tolower(rc));
+        if (lfold != rfold) {
+            return lfold < rfold ? -1 : 1;
+        }
+        ++i;
+        ++j;
+    }
+    if (i != left.size() || j != right.size()) {
+        return i == left.size() ? -1 : 1;
+    }
+    if (left == right) {
+        return 0;
+    }
+    return left < right ? -1 : 1;
+}
+
+bool filenameLess(const std::filesystem::path& left, const std::filesystem::path& right) {
+    const std::string left_name = pathToUtf8(left.filename());
+    const std::string right_name = pathToUtf8(right.filename());
+    if (const int compared = naturalCompare(left_name, right_name); compared != 0) {
+        return compared < 0;
+    }
+    return pathToUtf8(left) < pathToUtf8(right);
 }
 
 bool isCancelled(const std::atomic_bool* cancel) {
@@ -225,6 +286,7 @@ std::vector<RenameResult> Renamer::scan(
     struct ImageFile {
         std::filesystem::path path;
         ImageType type = ImageType::Iso;
+        std::size_t folder_index = 0;
     };
     std::vector<ImageFile> paths;
     std::vector<RenameResult> enumeration_failures;
@@ -240,7 +302,7 @@ std::vector<RenameResult> Renamer::scan(
             if (!type || (options.image_type != ImageType::Auto && *type != options.image_type)) {
                 continue;
             }
-            paths.push_back({it->path(), *type});
+            paths.push_back({it->path(), *type, paths.size()});
         }
         if (ec) {
             RenameResult failure;
@@ -279,12 +341,7 @@ std::vector<RenameResult> Renamer::scan(
 
     if (options.sort_files) {
         std::sort(paths.begin(), paths.end(), [](const ImageFile& left, const ImageFile& right) {
-            const std::string left_name = lowerAscii(pathToUtf8(left.path.filename()));
-            const std::string right_name = lowerAscii(pathToUtf8(right.path.filename()));
-            if (left_name != right_name) {
-                return left_name < right_name;
-            }
-            return pathToUtf8(left.path) < pathToUtf8(right.path);
+            return filenameLess(left.path, right.path);
         });
     }
 
@@ -307,6 +364,7 @@ std::vector<RenameResult> Renamer::scan(
         auto& item = results[index];
         item.source_path = paths[index].path;
         item.image_type = paths[index].type;
+        item.folder_index = paths[index].folder_index;
         item.status = ResultStatus::Scanning;
         item.detail = "Reading disc metadata";
         if (result_update) result_update(index, results.size(), item);
@@ -394,6 +452,9 @@ std::vector<RenameResult> Renamer::scan(
 
     if (!enumeration_failures.empty()) {
         const std::size_t offset = results.size();
+        for (std::size_t index = 0; index < enumeration_failures.size(); ++index) {
+            enumeration_failures[index].folder_index = paths.size() + index;
+        }
         results.insert(results.end(), enumeration_failures.begin(), enumeration_failures.end());
         for (std::size_t index = 0; index < enumeration_failures.size(); ++index) {
             if (activity) activity("FAILED: " + results[offset + index].detail);
@@ -468,6 +529,18 @@ RunSummary Renamer::apply(
     }
 
     return summarize(results);
+}
+
+void sortResultsByFilename(std::vector<RenameResult>& results) {
+    std::sort(results.begin(), results.end(), [](const RenameResult& left, const RenameResult& right) {
+        return filenameLess(left.source_path, right.source_path);
+    });
+}
+
+void sortResultsByFolderOrder(std::vector<RenameResult>& results) {
+    std::stable_sort(results.begin(), results.end(), [](const RenameResult& left, const RenameResult& right) {
+        return left.folder_index < right.folder_index;
+    });
 }
 
 RunSummary Renamer::summarize(const std::vector<RenameResult>& results) {

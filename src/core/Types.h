@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
 #include <string>
 
@@ -44,6 +45,9 @@ struct RenameResult {
     std::string game_id;
     std::string database_title;
     std::string detail;
+    // Position in the original directory walk, so Sort files can be turned off
+    // without scanning again.
+    std::size_t folder_index = 0;
 };
 
 struct RunSummary {

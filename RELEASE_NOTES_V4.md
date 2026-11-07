@@ -99,12 +99,14 @@ recorded further down.
 
 ### Sort files
 
-- **Sort files** sits beside **Include game ID in filename**. It is on by
-  default. The scan is ordered from A to Z by filename, then by full path.
-- With the box off, the scan keeps directory order: the selected folder, then
+- **Sort files** sits beside **Include game ID in filename**, on the line
+  under the image-type choices. It is on by default. Files are ordered from
+  A to Z by filename, then by full path. A run of digits is ordered by value,
+  so `2` comes before `10`.
+- With the box off, the list keeps directory order: the selected folder, then
   its one-level `CD`, `DVD`, and `POPS` children.
-- Changing the checkbox clears the current preview. Scan again before
-  applying. Results are not reordered while a scan is running.
+- Changing the checkbox reorders the current list. It does not reorder rows
+  while a scan is running.
 
 ### Windows and continuous integration
 

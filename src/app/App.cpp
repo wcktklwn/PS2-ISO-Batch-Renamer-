@@ -388,18 +388,24 @@ void App::drawSetupPanel() {
         image_type_ = ImageType::Vcd;
         invalidatePreview("Image type changed; scan again to create a new preview.");
     }
-    ImGui::SameLine();
+    ImGui::NewLine();
+    ImGui::SetCursorPosX(115.0F);
     bool include_id = naming_mode_ == NamingMode::TitleAndGameId;
     if (ImGui::Checkbox("Include game ID in filename", &include_id)) {
         naming_mode_ = include_id ? NamingMode::TitleAndGameId : NamingMode::TitleOnly;
         invalidatePreview("Naming option changed; scan again to create a new preview.");
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Sort files", &sort_files_)) {
-        invalidatePreview("Sort option changed; scan again to create a new preview.");
+    if (ImGui::Checkbox("Sort files", &sort_files_) && !running_.load()) {
+        std::lock_guard lock(state_mutex_);
+        if (sort_files_) {
+            sortResultsByFilename(results_);
+        } else {
+            sortResultsByFolderOrder(results_);
+        }
     }
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("List files from A to Z. Turn off to keep the folder's own order.");
+        ImGui::SetTooltip("List files from A to Z. Numbers are ordered by value, so 2 comes before 10. Turn off to keep the folder's own order.");
     }
 
     ImGui::TextUnformatted("Database");
@@ -553,7 +559,11 @@ void App::drawResultsPanel() {
                 ImGui::TableNextColumn(); ImGui::TextUnformatted(item.game_id.c_str());
                 ImGui::TableNextColumn();
                 ImGui::TextUnformatted(destination_filename.c_str());
-                ImGui::TableNextColumn(); ImGui::TextWrapped("%s", item.detail.c_str());
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted(item.detail.c_str());
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                    ImGui::SetTooltip("%s", item.detail.c_str());
+                }
             }
         }
         ImGui::EndTable();

@@ -42,4 +42,9 @@ private:
     const GameDatabase& database_;
 };
 
+// A-Z by filename. Digit runs compare by value, so "file2" comes before "file10".
+void sortResultsByFilename(std::vector<RenameResult>& results);
+// Restore the directory walk order recorded in RenameResult::folder_index.
+void sortResultsByFolderOrder(std::vector<RenameResult>& results);
+
 } // namespace ps2br
