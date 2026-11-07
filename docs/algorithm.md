@@ -70,6 +70,13 @@ serial goes to `CD` or `DVD` from that same catalog. The catalog is the Redump
 PS2 dat's bin/cue versus iso split, which matches the Redump CD and DVD media
 lists, plus the Redump PlayStation serial set. It is not stored in `gameid.txt`.
 
+A catalog row marked `T` is one executable serial that Redump lists as both CD
+and DVD. `SLUS_210.83` and `SLUS_202.73` are the two rows. The original discs
+are CD, and a later DVD pressing (LEGO Star Wars Greatest Hits, Namco Museum
+50th Anniversary) keeps the same 11-character ID. With folder sorting on, CD
+track metadata or user data at or under 737,280,000 bytes goes to `CD`. A
+larger image goes to `DVD`.
+
 When a serial is absent, CD track metadata makes a CHD a CD and a CHD without
 that metadata is a DVD. Any other image whose user data exceeds 737,280,000
 bytes is a DVD. A smaller unknown image stays in its current folder. Folder

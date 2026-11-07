@@ -44,8 +44,15 @@ MediaCatalog MediaCatalog::loadEmbedded() {
         std::string_view line = text.substr(cursor, (end == std::string_view::npos ? text.size() : end) - cursor);
         trimLineEnd(line);
         if (!line.empty() && line.front() != '#' && line.size() == 13 && line[11] == ' ' && isCatalogId(line.substr(0, 11))) {
-            if (line[12] == 'C' || line[12] == 'D' || line[12] == 'P') {
-                const MediaKind kind = line[12] == 'C' ? MediaKind::Cd : line[12] == 'D' ? MediaKind::Dvd : MediaKind::Playstation;
+            if (line[12] == 'C' || line[12] == 'D' || line[12] == 'P' || line[12] == 'T') {
+                MediaKind kind = MediaKind::Playstation;
+                if (line[12] == 'C') {
+                    kind = MediaKind::Cd;
+                } else if (line[12] == 'D') {
+                    kind = MediaKind::Dvd;
+                } else if (line[12] == 'T') {
+                    kind = MediaKind::Tied;
+                }
                 parsed.entries_.emplace(std::string(line.substr(0, 11)), kind);
             }
         }

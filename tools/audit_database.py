@@ -342,7 +342,7 @@ def redump_playstation_ids(base: Path) -> set[str]:
         if not line:
             continue
         parts = line.split()
-        if len(parts) != 2 or parts[1] not in {"C", "D", "P"} or GAME_ID_RE.fullmatch(parts[0]) is None:
+        if len(parts) != 2 or parts[1] not in {"C", "D", "P", "T"} or GAME_ID_RE.fullmatch(parts[0]) is None:
             raise ValueError(f"{catalog}:{line_number}: invalid media catalog record")
         if parts[1] == "P":
             ids.add(parts[0])

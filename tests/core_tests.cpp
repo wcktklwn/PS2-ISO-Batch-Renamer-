@@ -225,7 +225,7 @@ void databaseTests() {
                syphon_beta->title == "Syphon Filter 2 (USA) (Disc 2) (Beta) (2000-01-11)",
            "PSRM0171.00 should resolve to the Syphon Filter 2 disc 2 beta");
     const auto& media = ps2br::MediaCatalog::builtIn();
-    expect(media.size() == 23148, "built-in media catalog should contain the Redump serial set");
+    expect(media.size() == 23150, "built-in media catalog should contain the Redump serial set");
     const ps2br::MediaKind* arcana_media = media.find("SLUS_217.20");
     const ps2br::MediaKind* ico_media = media.find("SCUS_971.13");
     const ps2br::MediaKind* gex_media = media.find("SLUS_005.98");
@@ -239,6 +239,12 @@ void databaseTests() {
     expect(quaddle_media != nullptr && *quaddle_media == ps2br::MediaKind::Playstation,
            "LSP06010.10 should be catalogued as PlayStation");
     expect(media.find("SLUS_999.99") == nullptr, "an unused serial should be absent from the media catalog");
+    const ps2br::MediaKind* lego_media = media.find("SLUS_210.83");
+    const ps2br::MediaKind* namco_media = media.find("SLUS_202.73");
+    expect(lego_media != nullptr && *lego_media == ps2br::MediaKind::Tied,
+           "SLUS_210.83 should be a tied CD and DVD serial");
+    expect(namco_media != nullptr && *namco_media == ps2br::MediaKind::Tied,
+           "SLUS_202.73 should be a tied CD and DVD serial");
     const auto* retail_kingdom_hearts = built_in.findFirst("SLPM_666.75");
     expect(retail_kingdom_hearts != nullptr &&
                retail_kingdom_hearts->title == "Kingdom Hearts II - Final Mix +",
@@ -887,6 +893,40 @@ void autoMediaTests(const fs::path& root) {
            "an existing lowercase dvd folder should be reused");
 }
 
+void tiedMediaTests(const fs::path& root) {
+    const fs::path library = root / "tied-media";
+    fs::create_directories(library);
+    createFixture(library / "lego.iso", "SLUS_210.83");
+    createFixture(library / "namco.iso", "SLUS_202.73");
+    createFixture(library / "lego-gh.iso", "SLUS_210.83");
+    extendUserData(library / "lego-gh.iso", 737280001ULL);
+
+    ps2br::GameDatabase database;
+    std::string error;
+    expect(database.loadText(
+               "SLUS_210.83 LEGO Star Wars - The Video Game\r\n"
+               "SLUS_202.73 Namco Museum\r\n",
+               "test", error),
+           "tied media database should load");
+    ps2br::Renamer renamer(database);
+    auto results = renamer.scan(
+        {library, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly, true}, {}, {});
+    const auto* lego = findResult(results, "lego.iso");
+    const auto* namco = findResult(results, "namco.iso");
+    const auto* greatest_hits = findResult(results, "lego-gh.iso");
+    expect(results.size() == 3, "tied media scan should see the three fixture images");
+    expect(lego != nullptr && lego->status == ps2br::ResultStatus::Ready && lego->detail == "Move to CD" &&
+               lego->destination_path == library / "CD" / "LEGO Star Wars - The Video Game.iso",
+           "a CD-sized LEGO Star Wars image should move into CD");
+    expect(namco != nullptr && namco->status == ps2br::ResultStatus::Ready && namco->detail == "Move to CD" &&
+               namco->destination_path == library / "CD" / "Namco Museum.iso",
+           "a CD-sized Namco Museum image should move into CD");
+    expect(greatest_hits != nullptr && greatest_hits->status == ps2br::ResultStatus::Ready &&
+               greatest_hits->detail == "Move to DVD" &&
+               greatest_hits->destination_path == library / "DVD" / "LEGO Star Wars - The Video Game.iso",
+           "an oversized copy of a tied serial should move into DVD");
+}
+
 void writeRootFiles(const fs::path& path, const std::vector<std::string>& names) {
     std::vector<unsigned char> records;
     for (std::string name : names) {
@@ -1009,6 +1049,7 @@ int main() {
     safetyTests(directory);
     containerTests(directory);
     autoMediaTests(directory);
+    tiedMediaTests(directory);
     exampleImageTests();
 #if PS2BR_ENABLE_CHD && defined(PS2BR_CHDMAN_EXECUTABLE)
     chdRoundTripTest(directory);

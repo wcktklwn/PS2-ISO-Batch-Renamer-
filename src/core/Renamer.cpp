@@ -86,6 +86,13 @@ MediaPlacement classifyMedia(const Identification& identification, const ByteRea
         case MediaKind::Cd: return MediaPlacement::Cd;
         case MediaKind::Dvd: return MediaPlacement::Dvd;
         case MediaKind::Playstation: return MediaPlacement::Pops;
+        case MediaKind::Tied:
+            // The same executable serial is on the CD original and a later DVD.
+            // CD track metadata or a size within an 80-minute CD is the CD pressing.
+            if (reader.hasCdLayout() || reader.logicalBytes() <= kCdUserDataLimit) {
+                return MediaPlacement::Cd;
+            }
+            return MediaPlacement::Dvd;
         }
     }
     if (reader.hasCdLayout()) {

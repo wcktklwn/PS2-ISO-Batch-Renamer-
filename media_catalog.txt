@@ -1,5 +1,6 @@
 # Redump media catalog for Open PS2 Loader folders.
 # C = PlayStation 2 CD. D = PlayStation 2 DVD. P = PlayStation (POPS).
+# T = one executable serial on both CD and DVD. Size chooses the folder.
 # PlayStation 2 media comes from the Redump PS2 dat (2026-06-15, 11774 discs):
 # bin/cue dumps are CD and iso dumps are DVD. Those track types match the media
 # field on http://redump.org/discs/system/ps2/media/cd and
@@ -7,7 +8,10 @@
 # is DVD-5). PlayStation serials come from the Redump PSX dat (2026-06-15,
 # 10914 discs), the set listed at http://redump.org/discs/system/psx/.
 # One serial per line: AAAA_BBB.CC, or an 11-character on-disc product code
-# with the dot in the same place (LSP06010.10). A tied CD/DVD vote is omitted.
+# with the dot in the same place (LSP06010.10). T is one executable serial that
+# Redump lists as both CD and DVD. An image of a T serial at or under the
+# 80-minute CD user-data limit (737,280,000 bytes) goes to CD. A larger image
+# goes to DVD. CD track metadata also goes to CD.
 ESPM_700.01 P
 ESPM_700.02 P
 ESPM_700.03 P
@@ -21333,6 +21337,7 @@ SLUS_202.68 C
 SLUS_202.70 D
 SLUS_202.71 C
 SLUS_202.72 D
+SLUS_202.73 T
 SLUS_202.74 C
 SLUS_202.75 D
 SLUS_202.77 D
@@ -22063,6 +22068,7 @@ SLUS_210.79 D
 SLUS_210.80 D
 SLUS_210.81 D
 SLUS_210.82 D
+SLUS_210.83 T
 SLUS_210.84 D
 SLUS_210.86 D
 SLUS_210.87 D

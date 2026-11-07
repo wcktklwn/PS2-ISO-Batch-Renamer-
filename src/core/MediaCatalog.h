@@ -11,6 +11,8 @@ enum class MediaKind {
     Cd,
     Dvd,
     Playstation,
+    // Redump lists this executable serial on both CD and DVD.
+    Tied,
 };
 
 // Serials from the Redump PlayStation 2 CD, PlayStation 2 DVD, and PlayStation

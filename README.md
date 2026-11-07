@@ -94,10 +94,12 @@ is DVD; the same split as
 serials from
 [the PlayStation list](http://redump.org/discs/system/psx/). A `cdrom:\` boot
 path is PlayStation even when that serial is also a PlayStation 2 disc. A
-serial missing from the catalog stays in its current folder when the image is
-small enough to be either CD or DVD. A CHD with CD track metadata is a CD, a
-CHD without that metadata is a DVD, and any other image larger than an
-80-minute CD (737,280,000 bytes of user data) is a DVD.
+serial released as both CD and DVD under the same ID is marked `T`. That image
+goes to `CD` when its user data is at or under an 80-minute CD (737,280,000
+bytes) and to `DVD` when it is larger. A serial missing from the catalog stays
+in its current folder when the image is small enough to be either CD or DVD. A
+CHD with CD track metadata is a CD, a CHD without that metadata is a DVD, and
+any other image larger than an 80-minute CD is a DVD.
 
 A destination that already exists is reported as failed and is never replaced.
 

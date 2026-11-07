@@ -39,17 +39,23 @@ recorded further down.
   is reused regardless of letter case. A file that is already at the
   destination path is skipped.
 - Media comes from the embedded Redump catalog, `media_catalog.txt`
-  (23,148 serials). The source dats are dated 2026-06-15: 11,774 PlayStation 2
+  (23,150 serials). The source dats are dated 2026-06-15: 11,774 PlayStation 2
   discs and 10,914 PlayStation discs. `C` is PlayStation 2 CD, `D` is
   PlayStation 2 DVD, and `P` is PlayStation. Bin/cue dumps are CD and ISO dumps
   are DVD, the same split as the Redump CD and DVD media lists. The catalog is
   separate from `gameid.txt`.
 - A PlayStation boot path goes to `POPS` even when that serial is also a
-  PlayStation 2 disc. A serial with a tied CD/DVD vote is omitted. A serial
-  missing from the catalog stays in its current folder when the image is small
-  enough to be either format. A CHD with CD track metadata is a CD. A CHD
-  without that metadata is a DVD. Any other image whose user data is larger
-  than an 80-minute CD (737,280,000 bytes) is a DVD.
+  PlayStation 2 disc. A serial that Redump lists as both CD and DVD is marked
+  `T`. With folder sorting on, CD track metadata or user data at or under
+  737,280,000 bytes goes to `CD`, and a larger image goes to `DVD`.
+  `SLUS_210.83` (LEGO Star Wars - The Video Game) and `SLUS_202.73` (Namco
+  Museum) are the two `T` rows. The copies on a CD are the original discs. The
+  Greatest Hits and 50th Anniversary DVDs reuse the same executable serial and
+  are large enough to land in `DVD`. A serial missing from the catalog stays
+  in its current folder when the image is small enough to be either format. A
+  CHD with CD track metadata is a CD. A CHD without that metadata is a DVD.
+  Any other image whose user data is larger than an 80-minute CD (737,280,000
+  bytes) is a DVD.
 
 ### Database
 
