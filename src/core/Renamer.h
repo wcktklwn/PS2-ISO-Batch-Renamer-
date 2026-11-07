@@ -17,7 +17,9 @@ struct ScanOptions {
     std::filesystem::path folder;
     ImageType image_type = ImageType::Iso;
     NamingMode naming_mode = NamingMode::TitleOnly;
-    bool sort_files = true;
+    // Move PlayStation 2 CDs into CD, PlayStation 2 DVDs into DVD, and
+    // PlayStation discs into POPS. Off renames each file where it was found.
+    bool sort_into_folders = false;
 };
 
 class Renamer {
@@ -41,10 +43,5 @@ public:
 private:
     const GameDatabase& database_;
 };
-
-// A-Z by filename. Digit runs compare by value, so "file2" comes before "file10".
-void sortResultsByFilename(std::vector<RenameResult>& results);
-// Restore the directory walk order recorded in RenameResult::folder_index.
-void sortResultsByFolderOrder(std::vector<RenameResult>& results);
 
 } // namespace ps2br

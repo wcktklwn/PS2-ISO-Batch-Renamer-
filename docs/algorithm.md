@@ -53,26 +53,29 @@ Those forms are normalized and uppercased, and the path sets
 `Identification::playstation1`. A PlayStation 2 `cdrom0:\` serial is still
 taken from the original `0:\` match, stays byte-exact, and does not set the
 flag. A root-directory serial used because `SYSTEM.CNF` itself is missing
-does not set the flag either; Auto then follows the media catalog.
+does not set the flag either. With **Sort into CD/DVD/POPS** on, that disc
+then follows the media catalog.
 
-## Auto placement
+## Folder sorting
 
-Auto scans `.iso`, `.chd`, `.zso`, and `.vcd` in the selected folder and in
+**Auto** scans `.iso`, `.chd`, `.zso`, and `.vcd`. **ISO**, **CHD**, **ZSO**,
+and **VCD** scan that extension only. The scan reads the selected folder and
 direct `CD`, `DVD`, and `POPS` children. The result keeps the concrete image
-type so the renamed file keeps its extension. Other image types still rename
-inside the file's own directory and only accept their own extension.
+type so the renamed file keeps its extension.
 
-In Auto, a PlayStation boot path or a PlayStation serial from
-`media_catalog.txt` goes to `POPS`. A PlayStation 2 serial goes to `CD` or
-`DVD` from that same catalog. The catalog is the Redump PS2 dat's bin/cue
-versus iso split, which matches the Redump CD and DVD media lists, plus the
-Redump PlayStation serial set. It is not stored in `gameid.txt`.
+**Sort into CD/DVD/POPS** chooses the destination folder. Off, every image type
+renames inside the file's own directory. On, a PlayStation boot path or a
+PlayStation serial from `media_catalog.txt` goes to `POPS`. A PlayStation 2
+serial goes to `CD` or `DVD` from that same catalog. The catalog is the Redump
+PS2 dat's bin/cue versus iso split, which matches the Redump CD and DVD media
+lists, plus the Redump PlayStation serial set. It is not stored in `gameid.txt`.
 
 When a serial is absent, CD track metadata makes a CHD a CD and a CHD without
 that metadata is a DVD. Any other image whose user data exceeds 737,280,000
-bytes is a DVD. A smaller unknown image stays in its current folder. Auto
-creates `CD`, `DVD`, or `POPS` when it needs to, reuses an existing folder
-regardless of case, and skips a file that is already at the destination path.
+bytes is a DVD. A smaller unknown image stays in its current folder. Folder
+sorting creates `CD`, `DVD`, or `POPS` when it needs to, reuses an existing
+folder regardless of case, and skips a file that is already at the destination
+path.
 
 ## Filename parity
 

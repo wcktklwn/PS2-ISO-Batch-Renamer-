@@ -28,14 +28,15 @@ recorded further down.
 - The scan reads the selected folder and, unless that folder is already named
   `CD`, `DVD`, or `POPS`, its direct children with those names. It does not
   walk any deeper.
-- **ISO**, **CHD**, **ZSO**, and **VCD** rename a file in the folder where it
-  was found.
-- **Auto** moves a PlayStation 2 CD into `CD/`, a PlayStation 2 DVD into
-  `DVD/`, and a PlayStation disc into `POPS/` under the library root.
-  Selecting one of those three folders uses its parent as the library root, so
-  a disc is not placed in `CD/CD`.
-- Auto creates the destination folder when it is missing and reuses an
-  existing folder regardless of letter case. A file that is already at the
+- **Sort into CD/DVD/POPS** sits beside **Include game ID in filename**. It is
+  on by default. It moves a PlayStation 2 CD into `CD/`, a PlayStation 2 DVD
+  into `DVD/`, and a PlayStation disc into `POPS/` under the library root.
+  This applies to every image type. Turn it off to rename each file in the
+  folder where it was found.
+- Selecting `CD`, `DVD`, or `POPS` uses its parent as the library root, so a
+  disc is not placed in `CD/CD`.
+- The destination folder is created when it is missing, and an existing folder
+  is reused regardless of letter case. A file that is already at the
   destination path is skipped.
 - Media comes from the embedded Redump catalog, `media_catalog.txt`
   (23,148 serials). The source dats are dated 2026-06-15: 11,774 PlayStation 2
@@ -93,20 +94,10 @@ recorded further down.
   Two serials in that directory stay failed.
 - A disc with no `SYSTEM.CNF` uses the root filename when that directory
   contains exactly one serial-like name. That fallback leaves the PlayStation
-  flag clear, and Auto then follows the media catalog.
+  flag clear. With **Sort into CD/DVD/POPS** on, that disc follows the media
+  catalog.
 - A boot token that is not 11 characters, such as `907127.001`, is outside
   this ID format and stays unresolved.
-
-### Sort files
-
-- **Sort files** sits beside **Include game ID in filename**, on the line
-  under the image-type choices. It is on by default. Files are ordered from
-  A to Z by filename, then by full path. A run of digits is ordered by value,
-  so `2` comes before `10`.
-- With the box off, the list keeps directory order: the selected folder, then
-  its one-level `CD`, `DVD`, and `POPS` children.
-- Changing the checkbox reorders the current list. It does not reorder rows
-  while a scan is running.
 
 ### Windows and continuous integration
 

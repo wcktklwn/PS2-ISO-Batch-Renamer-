@@ -3,8 +3,9 @@
 A native desktop batch renamer for PlayStation 2 ISO, CHD, and ZSO images,
 plus POPStarter VCD images, by VajskiDs. V4 combines the V3 renamer and the
 former `GameName (game-id)` build into one Dear ImGui application for Windows
-and Linux. Auto mode reads every supported image and sorts PlayStation 2 CDs,
-PlayStation 2 DVDs, and PlayStation discs into `CD`, `DVD`, and `POPS`.
+and Linux. Auto mode reads every supported image. **Sort into CD/DVD/POPS**
+moves PlayStation 2 CDs, PlayStation 2 DVDs, and PlayStation discs into
+`CD`, `DVD`, and `POPS`.
 
 V4.1 is the definitive current release, replacing the earlier Windows-only
 variants. It uses the repository's current online database by default and
@@ -43,18 +44,18 @@ keeps a complete audited copy inside the application for offline use.
 - ISO, CHD, ZSO, and VCD files are read directly in-process. CHDs are not
   expanded into temporary ISO/CUE files, and ZSO blocks are decompressed in
   memory rather than written out as ISOs.
-- **Auto** scans every supported image. It moves PlayStation 2 CDs into
-  `CD`, PlayStation 2 DVDs into `DVD`, and PlayStation discs into `POPS`,
-  using the Redump media catalogs. The individual image types still rename
-  files in the folder where they were found.
+- **Auto** scans every supported image. **ISO**, **CHD**, **ZSO**, and **VCD**
+  scan that extension only.
 - The audited `gameid.txt` is compiled into the application. Use **Refresh
   online**, select a local/custom file, or restore the built-in copy with one
   click.
 - Optional **Include game ID in filename** mode produces
   `Game Title (SLUS_123.45).iso`, `.chd`, `.zso`, or `.vcd`. With the option
   off, V3-style `Game Title.iso` / `.chd` / `.zso` / `.vcd` names are used.
-- **Sort files** lists the scan from A to Z. Turn it off to keep the folder's
-  own order.
+- **Sort into CD/DVD/POPS** moves a PlayStation 2 CD into `CD`, a PlayStation 2
+  DVD into `DVD`, and a PlayStation disc into `POPS`, using the Redump media
+  catalogs. Turn it off to rename each file in the folder where it was found.
+  It is on by default.
 - Scan/preview and rename are separate steps. Nothing is overwritten.
 - Every file appears in a live results table and activity view while work is
   running. Failed items produce a persistent red warning, a review prompt,
@@ -69,8 +70,8 @@ keeps a complete audited copy inside the application for offline use.
 2. Select or drag in the game folder. An Open PS2 Loader library can be the
    folder that contains `CD`, `DVD`, and `POPS`.
 3. Leave **Auto** selected, or choose **ISO**, **CHD**, **ZSO**, or **VCD**.
-   Optionally tick **Include game ID in filename**. **Sort files** is on by
-   default and lists the scan from A to Z.
+   Optionally tick **Include game ID in filename**. **Sort into CD/DVD/POPS**
+   is on by default and moves discs into those folders.
 4. Check the database status. The app normally reports **Online database
    (GitHub)**; without internet it identifies the built-in fallback instead.
 5. Choose **Scan / Preview**. Review the proposed names and any failures in
@@ -79,11 +80,11 @@ keeps a complete audited copy inside the application for offline use.
 
 The scan reads the selected folder and, unless that folder is already named
 `CD`, `DVD`, or `POPS`, the direct subfolders with those names. It does not
-walk any deeper. **ISO**, **CHD**, **ZSO**, and **VCD** rename a file in the
-folder where it was found. **Auto** moves a PlayStation 2 CD into `CD`, a
-PlayStation 2 DVD into `DVD`, and a PlayStation disc into `POPS` under the
-library root. Selecting one of those three folders uses its parent as the
-library root, so a disc is not placed in `CD/CD`.
+walk any deeper. With **Sort into CD/DVD/POPS** off, every image type renames
+a file in the folder where it was found. With it on, a PlayStation 2 CD moves
+into `CD`, a PlayStation 2 DVD into `DVD`, and a PlayStation disc into `POPS`
+under the library root. Selecting one of those three folders uses its parent as
+the library root, so a disc is not placed in `CD/CD`.
 
 Media comes from the Redump catalogs embedded in `media_catalog.txt`:
 PlayStation 2 CD and DVD serials from the Redump PS2 dat (bin/cue is CD, iso

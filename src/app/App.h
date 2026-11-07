@@ -95,7 +95,7 @@ private:
     std::string online_database_notice_;
     ImageType image_type_ = ImageType::Auto;
     NamingMode naming_mode_ = NamingMode::TitleOnly;
-    bool sort_files_ = true;
+    bool sort_into_folders_ = true;
     Filter filter_ = Filter::All;
 
     mutable std::mutex state_mutex_;

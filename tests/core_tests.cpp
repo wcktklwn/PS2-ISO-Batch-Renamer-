@@ -353,53 +353,13 @@ void renamerTests(const fs::path& directory) {
     fs::create_directories(sorted_directory);
     createFixture(sorted_directory / "zeta.iso", "SLUS_217.20");
     createFixture(sorted_directory / "alpha.iso", "SLUS_217.20");
-    ps2br::ScanOptions sorted_options{sorted_directory, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly, true};
+    ps2br::ScanOptions sorted_options{sorted_directory, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly};
     auto sorted_results = renamer.scan(sorted_options, {}, {});
     expect(sorted_results.size() == 2 &&
                sorted_results[0].source_path.filename() == "alpha.iso" &&
-               sorted_results[1].source_path.filename() == "zeta.iso",
-           "Sort files should list names from A to Z");
-    const fs::path natural_directory = directory / "natural-names";
-    fs::create_directories(natural_directory);
-    createFixture(natural_directory / "file10.iso", "SLUS_217.20");
-    createFixture(natural_directory / "zeta.iso", "SLUS_217.20");
-    createFixture(natural_directory / "file2.iso", "SLUS_217.20");
-    createFixture(natural_directory / "Alpha.iso", "SLUS_217.20");
-    ps2br::ScanOptions natural_options{natural_directory, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly, true};
-    auto natural_results = renamer.scan(natural_options, {}, {});
-    expect(natural_results.size() == 4 &&
-               natural_results[0].source_path.filename() == "Alpha.iso" &&
-               natural_results[1].source_path.filename() == "file2.iso" &&
-               natural_results[2].source_path.filename() == "file10.iso" &&
-               natural_results[3].source_path.filename() == "zeta.iso",
-           "Sort files should ignore case and order numbers by value");
-    ps2br::sortResultsByFolderOrder(natural_results);
-    std::vector<fs::path> natural_folder_order;
-    for (const auto& entry : fs::directory_iterator(natural_directory)) {
-        if (entry.path().extension() == ".iso") natural_folder_order.push_back(entry.path().filename());
-    }
-    bool restored_folder_order = natural_results.size() == natural_folder_order.size();
-    for (std::size_t index = 0; restored_folder_order && index < natural_folder_order.size(); ++index) {
-        restored_folder_order = natural_results[index].source_path.filename() == natural_folder_order[index];
-    }
-    expect(restored_folder_order, "turning sort off should restore the folder's own order");
-    ps2br::sortResultsByFilename(natural_results);
-    expect(natural_results.size() == 4 &&
-               natural_results[0].source_path.filename() == "Alpha.iso" &&
-               natural_results[3].source_path.filename() == "zeta.iso",
-           "turning sort back on should order the current list again");
-    ps2br::ScanOptions unsorted_options = sorted_options;
-    unsorted_options.sort_files = false;
-    auto unsorted_results = renamer.scan(unsorted_options, {}, {});
-    std::vector<fs::path> folder_order;
-    for (const auto& entry : fs::directory_iterator(sorted_directory)) {
-        if (entry.path().extension() == ".iso") folder_order.push_back(entry.path().filename());
-    }
-    bool kept_folder_order = unsorted_results.size() == folder_order.size();
-    for (std::size_t index = 0; kept_folder_order && index < folder_order.size(); ++index) {
-        kept_folder_order = unsorted_results[index].source_path.filename() == folder_order[index];
-    }
-    expect(kept_folder_order, "turning sort off should keep the folder's own order");
+               sorted_results[1].source_path.filename() == "zeta.iso" &&
+               sorted_results[0].destination_path.parent_path() == sorted_directory,
+           "a scan should list names from A to Z and leave files in their own folder");
 }
 
 void safetyTests(const fs::path& root) {
@@ -834,7 +794,27 @@ void autoMediaTests(const fs::path& root) {
     expect(iso_arcana != nullptr && iso_arcana->destination_path == library / "Arcana Heart.iso",
            "ISO mode should leave a root image in the selected folder");
 
-    auto results = renamer.scan({library, ps2br::ImageType::Auto, ps2br::NamingMode::TitleOnly}, {}, {});
+    const fs::path sort_directory = root / "sort-into-folders";
+    fs::create_directories(sort_directory);
+    createFixture(sort_directory / "arcana.iso", "SLUS_217.20");
+    auto sorted_iso = renamer.scan(
+        {sort_directory, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly, true}, {}, {});
+    expect(sorted_iso.size() == 1 && sorted_iso[0].status == ps2br::ResultStatus::Ready &&
+               sorted_iso[0].detail == "Move to DVD" &&
+               sorted_iso[0].destination_path == sort_directory / "DVD" / "Arcana Heart.iso",
+           "Sort into CD/DVD/POPS should move an ISO into the matching folder");
+    auto unsorted_iso = renamer.scan(
+        {sort_directory, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly, false}, {}, {});
+    expect(unsorted_iso.size() == 1 &&
+               unsorted_iso[0].destination_path == sort_directory / "Arcana Heart.iso",
+           "turning folder sorting off should rename an ISO in its current folder");
+    auto unsorted_auto = renamer.scan(
+        {sort_directory, ps2br::ImageType::Auto, ps2br::NamingMode::TitleOnly, false}, {}, {});
+    expect(unsorted_auto.size() == 1 &&
+               unsorted_auto[0].destination_path == sort_directory / "Arcana Heart.iso",
+           "Auto should rename in place when folder sorting is off");
+
+    auto results = renamer.scan({library, ps2br::ImageType::Auto, ps2br::NamingMode::TitleOnly, true}, {}, {});
     const auto* arcana = findResult(results, "arcana.iso");
     const auto* ico = findResult(results, "ico.iso");
     const auto* gex = findResult(results, "Gex - Enter the Gecko.iso");
@@ -895,14 +875,14 @@ void autoMediaTests(const fs::path& root) {
     fs::create_directories(selected_dvd / "DVD");
     createFixture(selected_dvd / "DVD" / "arcana.iso", "SLUS_217.20");
     auto nested = renamer.scan(
-        {selected_dvd / "DVD", ps2br::ImageType::Auto, ps2br::NamingMode::TitleOnly}, {}, {});
+        {selected_dvd / "DVD", ps2br::ImageType::Auto, ps2br::NamingMode::TitleOnly, true}, {}, {});
     expect(nested.size() == 1 && nested[0].destination_path == selected_dvd / "DVD" / "Arcana Heart.iso",
            "selecting the DVD folder should not nest another DVD folder");
 
     const fs::path lowercase = root / "lowercase-dvd";
     fs::create_directories(lowercase / "dvd");
     createFixture(lowercase / "dvd" / "arcana.iso", "SLUS_217.20");
-    auto reused = renamer.scan({lowercase, ps2br::ImageType::Auto, ps2br::NamingMode::TitleOnly}, {}, {});
+    auto reused = renamer.scan({lowercase, ps2br::ImageType::Auto, ps2br::NamingMode::TitleOnly, true}, {}, {});
     expect(reused.size() == 1 && reused[0].destination_path.parent_path().filename() == "dvd",
            "an existing lowercase dvd folder should be reused");
 }

@@ -396,16 +396,11 @@ void App::drawSetupPanel() {
         invalidatePreview("Naming option changed; scan again to create a new preview.");
     }
     ImGui::SameLine();
-    if (ImGui::Checkbox("Sort files", &sort_files_) && !running_.load()) {
-        std::lock_guard lock(state_mutex_);
-        if (sort_files_) {
-            sortResultsByFilename(results_);
-        } else {
-            sortResultsByFolderOrder(results_);
-        }
+    if (ImGui::Checkbox("Sort into CD/DVD/POPS", &sort_into_folders_)) {
+        invalidatePreview("Sort option changed; scan again to create a new preview.");
     }
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("List files from A to Z. Numbers are ordered by value, so 2 comes before 10. Turn off to keep the folder's own order.");
+        ImGui::SetTooltip("Move PlayStation 2 CDs into CD, PlayStation 2 DVDs into DVD, and PlayStation discs into POPS. Turn off to rename each file in its current folder.");
     }
 
     ImGui::TextUnformatted("Database");
@@ -743,7 +738,7 @@ void App::startScan() {
     filter_ = Filter::All;
     cancel_requested_.store(false);
     running_.store(true);
-    const ScanOptions options{folder, image_type_, naming_mode_, sort_files_};
+    const ScanOptions options{folder, image_type_, naming_mode_, sort_into_folders_};
     worker_ = std::thread([this, options] {
         Renamer renamer(database_);
         auto results = renamer.scan(
