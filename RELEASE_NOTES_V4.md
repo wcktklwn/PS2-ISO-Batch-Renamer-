@@ -1,6 +1,6 @@
 # PS2 Batch Renamer V4
 
-## Changes after V4.1.0
+## Changes after V4.1.1
 
 The changes below are in the current source, on top of the V4.1.0 release
 recorded further down. The application window still reads V4.1. The committed
