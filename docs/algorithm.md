@@ -14,9 +14,19 @@ generated names are not redesigned.
    sequence.
 4. Move back 31 bytes from that match and read the four-byte big-endian
    `SYSTEM.CNF` extent.
-5. Multiply the extent by 2,048 and read the first 64 bytes of `SYSTEM.CNF`.
-6. Locate the first byte sequence `30 3A 5C` (`0:\`).
-7. Read the following 11 bytes as the game ID.
+5. Multiply the extent by 2,048 and read one sector of `SYSTEM.CNF`. When that
+   read does not fit, the first 64 bytes are used instead.
+6. Locate the first byte sequence `30 3A 5C` (`0:\`). When it is present, read
+   the following 11 bytes as the game ID and leave them byte-exact. That is
+   the PlayStation 2 path, and it does not mark the disc as PlayStation.
+7. When `0:\` is absent, read the PlayStation `BOOT` line. A missing backslash
+   (`cdrom:SLUS_001.52`), a forward slash, a directory
+   (`EXE\SCUS_946.08`, `TEKKEN3\SLUS_004.02`), a hyphen (`SLUS-000.05`), and a
+   compact name (`SCUS943.93`) all normalize to `AAAA_BBB.CC`. An on-disc
+   product code that is already 11 characters with the dot in the same place,
+   such as `LSP06010.10`, is kept as the database key. If the boot file is
+   `PSX.EXE` or another name without a serial, and the root directory contains
+   exactly one serial-like filename, that filename is used.
 8. Search the database from top to bottom and use the first line whose first
    11 characters match the extracted ID.
 
@@ -36,12 +46,14 @@ the ISO 9660 `CD001` descriptor and accepts 2,352-byte Mode 2 Form 1 sectors
 or cooked 2,048-byte sectors. Cooked 2,048-byte sectors are exposed to the
 same identifier.
 
-PlayStation discs used by POPStarter store the serial after `cdrom:\` rather
-than `cdrom0:\`. Some images double the backslash or use mixed case
-(`Slus_005.98`). When `0:\` is absent, the 11 bytes after `:\` are read,
-extra backslashes are skipped, and the serial is uppercased. That path sets
+PlayStation discs used by POPStarter store the serial on the `BOOT` line.
+The line may use `cdrom:\`, `cdrom:\\`, `cdrom:/`, or `cdrom:` with no slash,
+and the executable may sit in a directory or use a hyphen or compact serial.
+Those forms are normalized and uppercased, and the path sets
 `Identification::playstation1`. A PlayStation 2 `cdrom0:\` serial is still
-taken from the original `0:\` match and does not set the flag.
+taken from the original `0:\` match, stays byte-exact, and does not set the
+flag. A root-directory serial used because `SYSTEM.CNF` itself is missing
+does not set the flag either; Auto then follows the media catalog.
 
 ## Auto placement
 
@@ -92,5 +104,7 @@ The automated core tests verify:
 - plain and LZ4 ZSO blocks, including an alignment shift;
 - VCD Mode 2/2352 cooked sectors;
 - POPStarter `cdrom:\` serials, doubled backslashes, and mixed case;
+- PlayStation boot paths with no backslash, a directory, a hyphen, a compact
+  serial, a product code, and a single root-directory serial;
 - Auto placement into `CD`, `DVD`, and `POPS`, including subdirectory scan;
 - the bundled example ZSO and VCD images when `examples/` is present.

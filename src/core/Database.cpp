@@ -28,11 +28,14 @@ void decodeLegacyBatchEscapes(std::string& title) {
 }
 
 bool isValidGameId(std::string_view id) {
-    if (id.size() != 11 || id[4] != '_' || id[8] != '.') {
+    if (id.size() != 11 || id[8] != '.') {
         return false;
     }
     for (std::size_t index = 0; index < id.size(); ++index) {
-        if (index == 4 || index == 8) {
+        if (index == 8) {
+            continue;
+        }
+        if (index == 4 && id[index] == '_') {
             continue;
         }
         const unsigned char value = static_cast<unsigned char>(id[index]);

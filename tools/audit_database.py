@@ -15,7 +15,8 @@ import sys
 import unicodedata
 
 
-GAME_ID_RE = re.compile(r"^[A-Z0-9]{4}_[A-Z0-9]{3}\.[A-Z0-9]{2}$")
+# The second alternative is an on-disc product code such as LSP06010.10.
+GAME_ID_RE = re.compile(r"^(?:[A-Z0-9]{4}_[A-Z0-9]{3}|[A-Z0-9]{8})\.[A-Z0-9]{2}$")
 SERIAL_RE = re.compile(r"^([A-Z0-9]{4})[-_]([A-Z0-9]{3})[.\-]?([A-Z0-9]{2})$")
 OFFICIAL_SERIAL_RE = re.compile(r"^([A-Z0-9]{4})[-_](\d{3})[.\-]?(\d{2})$")
 PCSX2_RECORD_RE = re.compile(r"^([A-Z0-9]{4}-[A-Z0-9]{5}):(?:\s+#.*)?$")

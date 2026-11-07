@@ -23,8 +23,8 @@ keeps a complete audited copy inside the application for offline use.
 - The database was compared against current GameDB-PS2, GDX, PCSX2, and
   Get_CONFIG snapshots. That audit produced 13,442 unique canonical IDs,
   no duplicate IDs, and no Windows-forbidden filename characters. The current
-  built-in file also includes the Redump PlayStation catalog, for 24,477
-  records in total. The bundled POPStarter examples remain `SLUS_005.98`
+  built-in file also includes the Redump PlayStation catalog and the on-disc
+  product codes needed for Lightspan discs, for 24,532 records in total. The bundled POPStarter examples remain `SLUS_005.98`
   (Gex - Enter the Gecko) and `SCUS_945.55` (Jet Moto 3).
 - Reviewed fixes include the three AFL serials, **Looney Tunes - Space Race**,
   the cancelled Japanese **Wacky Races**, both corrected Konami rhythm-game
@@ -106,7 +106,7 @@ chmod +x PS2-Batch-Renamer-V4-Linux-x86_64.AppImage
 ## Database
 
 The root [`gameid.txt`](gameid.txt) is the database embedded in a V4 build.
-The current file contains 24,477 records with 24,477 unique IDs and no
+The current file contains 24,532 records with 24,532 unique IDs and no
 duplicate built-in entries. PlayStation titles were added from the Redump
 PlayStation set. Existing PlayStation 2 titles were left unchanged, including
 `SLUS_005.98` (Gex - Enter the Gecko) and `SCUS_945.55` (Jet Moto 3). The app
@@ -124,7 +124,8 @@ Usagiru `USGR` compilation IDs; these remain clearly recorded as community
 releases.
 
 Each non-empty database line must contain an 11-character game ID, one space,
-then the title:
+then the title. The ID is `AAAA_BBB.CC`, or an on-disc product code of the
+same length whose dot stays in that place, such as `LSP06010.10`:
 
 ```text
 SLUS_217.20 Arcana Heart
@@ -167,10 +168,11 @@ logic is used for ISO, CHD, ZSO, and VCD.
 ZSO input is a ZISO image. Each block is restored with LZ4, or copied through
 when the index marks it uncompressed, and the identifier then sees the original
 ISO bytes. VCD input is a POPStarter image: the 1 MiB header is skipped and
-the 2,048-byte user data is read out of each 2,352-byte sector. PlayStation
-`SYSTEM.CNF` lines that use `cdrom:\` instead of `cdrom0:\` are accepted.
-Extra backslashes are skipped, and a mixed-case serial is uppercased to the
-canonical ID.
+the 2,048-byte user data is read out of each 2,352-byte sector. PlayStation `SYSTEM.CNF` lines are read from the `BOOT` path. A missing
+backslash, a directory in front of the executable, a hyphen, and a compact
+serial such as `SCUS943.93` are normalized to the canonical ID. Lightspan
+product codes that are already 11 characters, such as `LSP06010.10`, are kept.
+A PlayStation 2 `0:\` serial is still the original 11 bytes.
 
 See [`docs/algorithm.md`](docs/algorithm.md) for the parity notes and regression
 test coverage.

@@ -95,6 +95,9 @@ void databaseTests() {
     expect(alphanumeric.loadText("KOEI_SP0.02 Koei Spring Pack\r\n", "test", error),
            "valid alphanumeric product IDs should load: " + error);
     ps2br::GameDatabase malformed;
+    ps2br::GameDatabase product_code;
+    expect(product_code.loadText("LSP06010.10 Quaddle Family Mysteries\r\n", "test", error),
+           "an 11-character on-disc product code should load: " + error);
     expect(!malformed.loadText("SLES-501.78 Oni\r\n", "test", error),
            "a database record with a hyphen in place of the canonical underscore must fail");
     expect(error.find("line 1") != std::string::npos,
@@ -102,8 +105,8 @@ void databaseTests() {
 
     ps2br::GameDatabase built_in;
     expect(built_in.loadBuiltIn(error), "built-in database should load: " + error);
-    expect(built_in.recordCount() == 24477, "built-in database should contain the current record count");
-    expect(built_in.uniqueIdCount() == 24477, "every built-in database ID should be unique");
+    expect(built_in.recordCount() == 24532, "built-in database should contain the current record count");
+    expect(built_in.uniqueIdCount() == 24532, "every built-in database ID should be unique");
     expect(built_in.duplicateIdCount() == 0, "built-in database should contain no duplicate IDs");
     constexpr std::array<std::pair<std::string_view, std::string_view>, 62> audited_titles{{
         {"PCPX_966.49", "Gran Turismo 4 - First Preview"},
@@ -201,8 +204,28 @@ void databaseTests() {
     const auto* klonoa = built_in.findFirst("SCES_009.42");
     expect(klonoa != nullptr && klonoa->title == "Klonoa - Door to Phantomile (Europe)",
            "SCES_009.42 should use the Redump PlayStation title; Secret Agent Clank keeps SCES_554.96");
+    const auto* pepsi = built_in.findFirst("SCUS_941.93");
+    expect(pepsi != nullptr && pepsi->title == "PlayStation-Pepsi Sampler Disc (USA)",
+           "SCUS_941.93 should resolve to the PlayStation-Pepsi sampler");
+    const auto* star_ocean = built_in.findFirst("SCUS_944.22");
+    expect(star_ocean != nullptr && star_ocean->title == "Star Ocean - The Second Story (USA) (Disc 2)",
+           "SCUS_944.22 should resolve to Star Ocean disc 2");
+    const auto* pong_demo = built_in.findFirst("SLUS_808.89");
+    expect(pong_demo != nullptr && pong_demo->title == "Pong - The Next Level (USA) (Trade Demo)",
+           "SLUS_808.89 should resolve to the Pong trade demo");
+    const auto* quaddle = built_in.findFirst("LSP06010.10");
+    expect(quaddle != nullptr &&
+               quaddle->title == "Quaddle Family Mysteries, The 1 - The Case of the Scarce Scarab - Lobby & Kitchen (USA)",
+           "LSP06010.10 should keep the on-disc Lightspan product code");
+    const auto* strates = built_in.findFirst("LSP03010.20");
+    expect(strates != nullptr && strates->title == "Str.at.e.s. 2 - Matchamania! (USA)",
+           "Lightspan titles should decode a stored exclamation mark");
+    const auto* syphon_beta = built_in.findFirst("PSRM0171.00");
+    expect(syphon_beta != nullptr &&
+               syphon_beta->title == "Syphon Filter 2 (USA) (Disc 2) (Beta) (2000-01-11)",
+           "PSRM0171.00 should resolve to the Syphon Filter 2 disc 2 beta");
     const auto& media = ps2br::MediaCatalog::builtIn();
-    expect(media.size() == 23093, "built-in media catalog should contain the Redump serial set");
+    expect(media.size() == 23148, "built-in media catalog should contain the Redump serial set");
     const ps2br::MediaKind* arcana_media = media.find("SLUS_217.20");
     const ps2br::MediaKind* ico_media = media.find("SCUS_971.13");
     const ps2br::MediaKind* gex_media = media.find("SLUS_005.98");
@@ -212,6 +235,9 @@ void databaseTests() {
            "SCUS_971.13 should be a Redump PlayStation 2 CD serial");
     expect(gex_media != nullptr && *gex_media == ps2br::MediaKind::Playstation,
            "SLUS_005.98 should be a Redump PlayStation serial");
+    const ps2br::MediaKind* quaddle_media = media.find("LSP06010.10");
+    expect(quaddle_media != nullptr && *quaddle_media == ps2br::MediaKind::Playstation,
+           "LSP06010.10 should be catalogued as PlayStation");
     expect(media.find("SLUS_999.99") == nullptr, "an unused serial should be absent from the media catalog");
     const auto* retail_kingdom_hearts = built_in.findFirst("SLPM_666.75");
     expect(retail_kingdom_hearts != nullptr &&
@@ -829,6 +855,112 @@ void autoMediaTests(const fs::path& root) {
            "an existing lowercase dvd folder should be reused");
 }
 
+void writeRootFiles(const fs::path& path, const std::vector<std::string>& names) {
+    std::vector<unsigned char> records;
+    for (std::string name : names) {
+        if (name.find(';') == std::string::npos) {
+            name += ";1";
+        }
+        const std::size_t record_length = 33 + name.size();
+        const std::size_t start = records.size();
+        records.resize(start + record_length, 0);
+        records[start] = static_cast<unsigned char>(record_length);
+        records[start + 32] = static_cast<unsigned char>(name.size());
+        std::copy(name.begin(), name.end(), records.begin() + static_cast<std::ptrdiff_t>(start + 33));
+    }
+    records.push_back(0);
+    std::fstream file(path, std::ios::in | std::ios::out | std::ios::binary);
+    file.seekp(0x82800);
+    file.write(reinterpret_cast<const char*>(records.data()), static_cast<std::streamsize>(records.size()));
+}
+
+ps2br::Identification identifyText(const fs::path& path, std::string_view text) {
+    createFixture(path, "SLUS_217.20");
+    patchSystemCnf(path, text);
+    ps2br::IsoReader reader(path);
+    return ps2br::identifyGame(reader);
+}
+
+void playstationBootTests(const fs::path& directory) {
+    const fs::path folder = directory / "ps1-boot";
+    fs::create_directories(folder);
+
+    const auto no_slash = identifyText(folder / "no-slash.iso", "BOOT = cdrom:slus_001.52;1\r\nTCB = 4\r\n");
+    expect(no_slash.success && no_slash.playstation1 && no_slash.game_id == "SLUS_001.52",
+           "a PlayStation boot path without a backslash should normalize: " + no_slash.game_id + " / " + no_slash.error);
+
+    const auto hyphen = identifyText(folder / "hyphen.iso", "BOOT = cdrom:\\SLUS-000.05;1\r\n");
+    expect(hyphen.success && hyphen.playstation1 && hyphen.game_id == "SLUS_000.05",
+           "a hyphenated PlayStation serial should use the canonical underscore: " + hyphen.game_id + " / " + hyphen.error);
+
+    const auto compact = identifyText(folder / "compact.iso", "BOOT=cdrom:\\SCUS943.93;1\r\n");
+    expect(compact.success && compact.playstation1 && compact.game_id == "SCUS_943.93",
+           "a compact PlayStation serial should gain its underscore: " + compact.game_id + " / " + compact.error);
+
+    const auto folder_name = identifyText(folder / "folder.iso", "BOOT = cdrom:\\TEKKEN3\\SLUS_004.02;1\r\n");
+    expect(folder_name.success && folder_name.playstation1 && folder_name.game_id == "SLUS_004.02",
+           "a directory before the executable should be skipped: " + folder_name.game_id + " / " + folder_name.error);
+
+    const auto wild_arms = identifyText(folder / "wild-arms.iso", "BOOT = cdrom:\\EXE\\SCUS_946.08;1\r\n");
+    expect(wild_arms.success && wild_arms.game_id == "SCUS_946.08",
+           "Wild Arms should read the serial after EXE\\: " + wild_arms.game_id + " / " + wild_arms.error);
+
+    const auto forward = identifyText(folder / "forward.iso", "BOOT = cdrom:/SLUS_012.18;1\r\n");
+    expect(forward.success && forward.playstation1 && forward.game_id == "SLUS_012.18",
+           "a forward-slash boot path should normalize: " + forward.game_id + " / " + forward.error);
+
+    const auto spaced = identifyText(folder / "spaced.iso", "BOOT = cdrom: \\SLUS_001.46;1\r\n");
+    expect(spaced.success && spaced.playstation1 && spaced.game_id == "SLUS_001.46",
+           "a space between the colon and backslash should be ignored: " + spaced.game_id + " / " + spaced.error);
+
+    std::string late(80, ' ');
+    late += "BOOT = cdrom:\\SLUS_010.73;1\r\n";
+    const auto past_window = identifyText(folder / "late.iso", late);
+    expect(past_window.success && past_window.playstation1 && past_window.game_id == "SLUS_010.73",
+           "a boot line past the first 64 bytes should still be read: " + past_window.game_id + " / " + past_window.error);
+
+    const auto product = identifyText(folder / "product.iso", "BOOT = cdrom:\\LSP06010.10;1\r\n");
+    expect(product.success && product.playstation1 && product.game_id == "LSP06010.10",
+           "a Lightspan product code should be kept as the database key: " + product.game_id + " / " + product.error);
+
+    const auto ps2_case = identifyText(folder / "ps2-case.iso", "BOOT2 = cdrom0:\\Slus_217.20;1\r\nVER = 1.00\r\n");
+    expect(ps2_case.success && !ps2_case.playstation1 && ps2_case.game_id == "Slus_217.20",
+           "a PlayStation 2 serial after 0:\\ should stay byte-exact: " + ps2_case.game_id + " / " + ps2_case.error);
+
+    const fs::path executable = folder / "executable.iso";
+    createFixture(executable, "SLUS_217.20");
+    patchSystemCnf(executable, "BOOT = cdrom:\\PSX.EXE;1\r\n");
+    writeRootFiles(executable, {"SLUS_900.85"});
+    {
+        ps2br::IsoReader reader(executable);
+        const auto identification = ps2br::identifyGame(reader);
+        expect(identification.success && identification.playstation1 && identification.game_id == "SLUS_900.85",
+               "PSX.EXE should fall back to the single serial file in the root: " + identification.game_id + " / " +
+                   identification.error);
+    }
+
+    const fs::path ambiguous = folder / "ambiguous.iso";
+    createFixture(ambiguous, "SLUS_217.20");
+    patchSystemCnf(ambiguous, "BOOT = cdrom:\\MAIN.EXE;1\r\n");
+    writeRootFiles(ambiguous, {"SLUS_000.05", "SLUS_001.52"});
+    {
+        ps2br::IsoReader reader(ambiguous);
+        const auto identification = ps2br::identifyGame(reader);
+        expect(!identification.success, "two root serials and an EXE boot file should stay unresolved");
+    }
+
+    const fs::path no_cnf = folder / "no-cnf.iso";
+    createFixture(no_cnf, "SLUS_217.20", false);
+    writeRootFiles(no_cnf, {"SLUS_005.98"});
+    {
+        ps2br::IsoReader reader(no_cnf);
+        const auto identification = ps2br::identifyGame(reader);
+        expect(identification.success && !identification.playstation1 && identification.game_id == "SLUS_005.98",
+               "a missing SYSTEM.CNF should use one root serial without forcing PlayStation: " + identification.game_id +
+                   " / " + identification.error);
+    }
+}
+
 } // namespace
 
 int main() {
@@ -840,6 +972,7 @@ int main() {
     fs::create_directories(directory, ec);
     expect(!ec, "temporary test directory should be created");
     identifierTests(directory);
+    playstationBootTests(directory);
     renamerTests(directory);
     safetyTests(directory);
     containerTests(directory);
