@@ -348,6 +348,29 @@ void renamerTests(const fs::path& directory) {
     expect(fs::exists(directory / "Arcana Heart (SLUS_217.20).iso"), "renamed file should exist");
     expect(!fs::exists(directory / "failed.txt"), "results must stay in memory unless the user saves a report");
     expect(!fs::exists(directory / "PS2_iso_files.txt"), "scanning must not leave a generated file list behind");
+
+    const fs::path sorted_directory = directory / "sorted-names";
+    fs::create_directories(sorted_directory);
+    createFixture(sorted_directory / "zeta.iso", "SLUS_217.20");
+    createFixture(sorted_directory / "alpha.iso", "SLUS_217.20");
+    ps2br::ScanOptions sorted_options{sorted_directory, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly, true};
+    auto sorted_results = renamer.scan(sorted_options, {}, {});
+    expect(sorted_results.size() == 2 &&
+               sorted_results[0].source_path.filename() == "alpha.iso" &&
+               sorted_results[1].source_path.filename() == "zeta.iso",
+           "Sort files should list names from A to Z");
+    ps2br::ScanOptions unsorted_options = sorted_options;
+    unsorted_options.sort_files = false;
+    auto unsorted_results = renamer.scan(unsorted_options, {}, {});
+    std::vector<fs::path> folder_order;
+    for (const auto& entry : fs::directory_iterator(sorted_directory)) {
+        if (entry.path().extension() == ".iso") folder_order.push_back(entry.path().filename());
+    }
+    bool kept_folder_order = unsorted_results.size() == folder_order.size();
+    for (std::size_t index = 0; kept_folder_order && index < folder_order.size(); ++index) {
+        kept_folder_order = unsorted_results[index].source_path.filename() == folder_order[index];
+    }
+    expect(kept_folder_order, "turning sort off should keep the folder's own order");
 }
 
 void safetyTests(const fs::path& root) {

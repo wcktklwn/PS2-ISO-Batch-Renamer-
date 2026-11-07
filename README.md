@@ -53,6 +53,8 @@ keeps a complete audited copy inside the application for offline use.
 - Optional **Include game ID in filename** mode produces
   `Game Title (SLUS_123.45).iso`, `.chd`, `.zso`, or `.vcd`. With the option
   off, V3-style `Game Title.iso` / `.chd` / `.zso` / `.vcd` names are used.
+- **Sort files** lists the scan from A to Z. Turn it off to keep the folder's
+  own order.
 - Scan/preview and rename are separate steps. Nothing is overwritten.
 - Every file appears in a live results table and activity view while work is
   running. Failed items produce a persistent red warning, a review prompt,
@@ -67,7 +69,8 @@ keeps a complete audited copy inside the application for offline use.
 2. Select or drag in the game folder. An Open PS2 Loader library can be the
    folder that contains `CD`, `DVD`, and `POPS`.
 3. Leave **Auto** selected, or choose **ISO**, **CHD**, **ZSO**, or **VCD**.
-   Optionally tick **Include game ID in filename**.
+   Optionally tick **Include game ID in filename**. **Sort files** is on by
+   default and lists the scan from A to Z.
 4. Check the database status. The app normally reports **Online database
    (GitHub)**; without internet it identifies the built-in fallback instead.
 5. Choose **Scan / Preview**. Review the proposed names and any failures in

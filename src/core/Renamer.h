@@ -17,6 +17,7 @@ struct ScanOptions {
     std::filesystem::path folder;
     ImageType image_type = ImageType::Iso;
     NamingMode naming_mode = NamingMode::TitleOnly;
+    bool sort_files = true;
 };
 
 class Renamer {

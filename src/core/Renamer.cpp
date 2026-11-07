@@ -277,14 +277,16 @@ std::vector<RenameResult> Renamer::scan(
         }
     }
 
-    std::sort(paths.begin(), paths.end(), [](const ImageFile& left, const ImageFile& right) {
-        const std::string left_name = lowerAscii(pathToUtf8(left.path.filename()));
-        const std::string right_name = lowerAscii(pathToUtf8(right.path.filename()));
-        if (left_name != right_name) {
-            return left_name < right_name;
-        }
-        return pathToUtf8(left.path) < pathToUtf8(right.path);
-    });
+    if (options.sort_files) {
+        std::sort(paths.begin(), paths.end(), [](const ImageFile& left, const ImageFile& right) {
+            const std::string left_name = lowerAscii(pathToUtf8(left.path.filename()));
+            const std::string right_name = lowerAscii(pathToUtf8(right.path.filename()));
+            if (left_name != right_name) {
+                return left_name < right_name;
+            }
+            return pathToUtf8(left.path) < pathToUtf8(right.path);
+        });
+    }
 
     std::vector<RenameResult> results(paths.size());
     if (activity) {

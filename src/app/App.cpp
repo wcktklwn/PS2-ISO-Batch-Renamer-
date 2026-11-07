@@ -394,6 +394,13 @@ void App::drawSetupPanel() {
         naming_mode_ = include_id ? NamingMode::TitleAndGameId : NamingMode::TitleOnly;
         invalidatePreview("Naming option changed; scan again to create a new preview.");
     }
+    ImGui::SameLine();
+    if (ImGui::Checkbox("Sort files", &sort_files_)) {
+        invalidatePreview("Sort option changed; scan again to create a new preview.");
+    }
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("List files from A to Z. Turn off to keep the folder's own order.");
+    }
 
     ImGui::TextUnformatted("Database");
     ImGui::SameLine(115.0F);
@@ -726,7 +733,7 @@ void App::startScan() {
     filter_ = Filter::All;
     cancel_requested_.store(false);
     running_.store(true);
-    const ScanOptions options{folder, image_type_, naming_mode_};
+    const ScanOptions options{folder, image_type_, naming_mode_, sort_files_};
     worker_ = std::thread([this, options] {
         Renamer renamer(database_);
         auto results = renamer.scan(
