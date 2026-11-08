@@ -133,8 +133,125 @@ std::string destinationLabel(const std::filesystem::path& source, const std::fil
     return pathToUtf8(destination.parent_path().filename() / destination.filename());
 }
 
-std::string filenameFor(const DatabaseRecord& record, NamingMode mode, ImageType type) {
-    std::string filename = record.title;
+std::string_view trimAscii(std::string_view text) {
+    while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) {
+        text.remove_prefix(1);
+    }
+    while (!text.empty() && (text.back() == ' ' || text.back() == '\t')) {
+        text.remove_suffix(1);
+    }
+    return text;
+}
+
+// Redump region names and the two-letter language codes that appear in
+// PlayStation titles. A parenthetical is a region tag only when every
+// comma-separated part is in this list, so "(USA, Demo)" stays intact.
+bool isRegionOrLanguage(std::string_view token) {
+    static constexpr std::array<std::string_view, 56> kTokens{{
+        "Ar",          "Argentina", "Asia",      "Australia",    "Austria",
+        "Belgium",     "Brazil",    "Ca",        "Canada",       "China",
+        "Cs",          "Czech",     "Da",        "De",           "Denmark",
+        "En",          "Es",        "Europe",    "Fi",           "Finland",
+        "Fr",          "France",    "Germany",   "Greece",       "Hong Kong",
+        "Hungary",     "Ireland",   "Israel",    "It",           "Italy",
+        "Ja",          "Japan",     "Ko",        "Korea",        "Mexico",
+        "Netherlands", "New Zealand", "Nl",      "No",           "Norway",
+        "Pl",          "Poland",    "Portugal",  "Pt",           "Ru",
+        "Russia",      "Scandinavia", "Spain",   "Sv",           "Sweden",
+        "Switzerland", "Taiwan",    "UK",        "USA",          "World",
+        "Zh",
+    }};
+    static_assert(std::is_sorted(kTokens.begin(), kTokens.end()));
+    return std::binary_search(kTokens.begin(), kTokens.end(), token);
+}
+
+bool isRegionLanguageGroup(std::string_view inner) {
+    if (inner.empty()) {
+        return false;
+    }
+    bool any = false;
+    std::size_t start = 0;
+    while (start <= inner.size()) {
+        const std::size_t comma = inner.find(',', start);
+        const std::size_t end = comma == std::string_view::npos ? inner.size() : comma;
+        const std::string_view token = trimAscii(inner.substr(start, end - start));
+        if (token.empty() || !isRegionOrLanguage(token)) {
+            return false;
+        }
+        any = true;
+        if (comma == std::string_view::npos) {
+            break;
+        }
+        start = comma + 1;
+    }
+    return any;
+}
+
+// PlayStation 2 titles omit region and language tags and put edition or disc
+// markers in square brackets. Apply that shape to a PlayStation title here so
+// the stored database line, including an online copy, stays unchanged.
+std::string playstationFilenameTitle(std::string_view title) {
+    std::string out;
+    out.reserve(title.size());
+    for (std::size_t index = 0; index < title.size();) {
+        if (title[index] != '(') {
+            out.push_back(title[index]);
+            ++index;
+            continue;
+        }
+        const std::size_t close = title.find(')', index + 1);
+        if (close == std::string_view::npos) {
+            out.append(title.substr(index));
+            break;
+        }
+        const std::string_view inner = trimAscii(title.substr(index + 1, close - index - 1));
+        if (inner.empty() || isRegionLanguageGroup(inner)) {
+            if (!out.empty() && out.back() == ' ') {
+                out.pop_back();
+            }
+        } else {
+            out.push_back('[');
+            out.append(inner);
+            out.push_back(']');
+        }
+        index = close + 1;
+    }
+
+    std::string collapsed;
+    collapsed.reserve(out.size());
+    bool pending_space = false;
+    for (unsigned char value : out) {
+        if (value == ' ' || value == '\t') {
+            pending_space = !collapsed.empty();
+            continue;
+        }
+        if (pending_space) {
+            collapsed.push_back(' ');
+            pending_space = false;
+        }
+        collapsed.push_back(static_cast<char>(value));
+    }
+    return collapsed;
+}
+
+// A PlayStation boot path is styled even when that serial is also a
+// PlayStation 2 disc. A missing SYSTEM.CNF leaves the flag clear, so the
+// media catalog decides for that disc.
+bool playstationDisc(const Identification& identification) {
+    if (identification.playstation1) {
+        return true;
+    }
+    if (const MediaKind* kind = MediaCatalog::builtIn().find(identification.game_id)) {
+        return *kind == MediaKind::Playstation;
+    }
+    return false;
+}
+
+std::string filenameFor(const DatabaseRecord& record, NamingMode mode, ImageType type, bool playstation) {
+    std::string filename = playstation ? playstationFilenameTitle(record.title) : record.title;
+    if (filename.empty()) {
+        filename = record.title;
+    }
     if (mode == NamingMode::TitleAndGameId) {
         filename += " (" + record.game_id + ")";
     }
@@ -349,7 +466,8 @@ std::vector<RenameResult> Renamer::scan(
         }
 
         item.database_title = record->title;
-        const std::string destination_filename = filenameFor(*record, options.naming_mode, paths[index].type);
+        const std::string destination_filename =
+            filenameFor(*record, options.naming_mode, paths[index].type, playstationDisc(identification));
         if (const std::string filename_error = portableFilenameError(destination_filename); !filename_error.empty()) {
             item.status = ResultStatus::Failed;
             item.detail = filename_error;

@@ -39,7 +39,7 @@ recorded further down.
   is reused regardless of letter case. A file that is already at the
   destination path is skipped.
 - Media comes from the embedded Redump catalog, `media_catalog.txt`
-  (23,150 serials). The source dats are dated 2026-06-15: 11,774 PlayStation 2
+  (23,218 serials). The source dats are dated 2026-06-15: 11,774 PlayStation 2
   discs and 10,914 PlayStation discs. `C` is PlayStation 2 CD, `D` is
   PlayStation 2 DVD, and `P` is PlayStation. Bin/cue dumps are CD and ISO dumps
   are DVD, the same split as the Redump CD and DVD media lists. The catalog is
@@ -59,10 +59,10 @@ recorded further down.
 
 ### Database
 
-- The built-in `gameid.txt` now contains **24,532** unique records. The
+- The built-in `gameid.txt` now contains **24,600** unique records. The
   V4.1.0 audit figure of 13,442, and the corrections listed below, are
   unchanged. The later growth is the Redump PlayStation catalog plus 55
-  on-disc rows.
+  on-disc rows and 68 serials for PlayStation discs that were still failing.
 - An ID is 11 characters with the dot in the same place: `AAAA_BBB.CC`, or an
   on-disc product code such as `LSP06010.10`. The first matching line still
   wins. `^!` in a stored title still becomes `!` in the filename.
@@ -84,6 +84,15 @@ recorded further down.
   - `SLUS_808.89` — **Pong - The Next Level (USA) (Trade Demo)** (retail
     `SLUS_008.89` is unchanged)
   - `PSRM0171.00` — **Syphon Filter 2 (USA) (Disc 2) (Beta) (2000-01-11)**
+- Another 62 Lightspan product codes were added for 16 Tales, Calamity,
+  Cali's Geo Tools, Cosmic Cookoff, Creative Camp, Creative Isle, Creative
+  Journey, Creative Voyage, Every Child Can Succeed, Faire Games, Family
+  Connection, Head to Toe, K9.5, KazMania 2, Liquid Books, Mars Moose, Math
+  Gallery, Math on the Move, Mona & Moki, and P.K.'s Place. Six retail
+  PlayStation serials were added as well: `SCUS_941.64` and `SCUS_941.65`
+  (Final Fantasy VII discs 2 and 3), `SCUS_949.52` (PlayStation Picks),
+  `SLUS_000.09` (Defcon 5), `SLUS_000.69` (Goal Storm), and `SLUS_012.32`
+  (MTV Sports - Skateboarding).
 
 ### Identification
 
@@ -94,7 +103,10 @@ recorded further down.
   directory in front of the executable. A hyphen (`SLUS-000.05`) and a compact
   serial (`SCUS943.93`) normalize to `AAAA_BBB.CC`. An 11-character product
   code that starts with a letter and already has the dot in place, such as
-  `LSP06010.10` or `PSRM0171.00`, is kept as the key.
+  `LSP06010.10` or `PSRM0171.00`, is kept as the key. A Lightspan executable
+  with one extra digit (`LSP06010.101`) drops that digit. An 8.3 name with the
+  dot moved (`SLUS_00.220`) or the underscore replaced (`SLUSP012.06`) is
+  repaired to `SLUS_002.20` or `SLUS_012.06`.
 - A boot file that is only an executable name, such as `PSX.EXE`, uses the
   root filename when that directory contains exactly one serial-like name.
   Two serials in that directory stay failed.
@@ -104,6 +116,18 @@ recorded further down.
   catalog.
 - A boot token that is not 11 characters, such as `907127.001`, is outside
   this ID format and stays unresolved.
+
+### PlayStation filenames
+
+- A PlayStation rename follows the PlayStation 2 title style. Region and
+  language groups such as `(USA)`, `(Japan, Asia)`, and `(En,Fr,De)` are left
+  out of the filename. Other parenthetical markers stay, in square brackets, so
+  `(Disc 2)` and `(Trade Demo)` become `[Disc 2]` and `[Trade Demo]`.
+- The stored `gameid.txt` line is unchanged, including a database loaded with
+  **Refresh online**. PlayStation 2 filenames keep the database title.
+- With **Include game ID in filename** off, two PlayStation discs that share
+  the cleaned title are left in place. The second row fails because the
+  destination already exists.
 
 ### Windows and continuous integration
 

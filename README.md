@@ -25,7 +25,7 @@ keeps a complete audited copy inside the application for offline use.
   Get_CONFIG snapshots. That audit produced 13,442 unique canonical IDs,
   no duplicate IDs, and no Windows-forbidden filename characters. The current
   built-in file also includes the Redump PlayStation catalog and the on-disc
-  product codes needed for Lightspan discs, for 24,532 records in total. The bundled POPStarter examples remain `SLUS_005.98`
+  product codes needed for Lightspan discs, for 24,600 records in total. The bundled POPStarter examples remain `SLUS_005.98`
   (Gex - Enter the Gecko) and `SCUS_945.55` (Jet Moto 3).
 - Reviewed fixes include the three AFL serials, **Looney Tunes - Space Race**,
   the cancelled Japanese **Wacky Races**, both corrected Konami rhythm-game
@@ -52,6 +52,10 @@ keeps a complete audited copy inside the application for offline use.
 - Optional **Include game ID in filename** mode produces
   `Game Title (SLUS_123.45).iso`, `.chd`, `.zso`, or `.vcd`. With the option
   off, V3-style `Game Title.iso` / `.chd` / `.zso` / `.vcd` names are used.
+  PlayStation names drop region and language tags such as `(USA)` and
+  `(En,Ja,Fr,De)`, and write the remaining markers in square brackets
+  (`[Disc 2]`, `[Trade Demo]`), matching PlayStation 2 titles. The stored
+  database title is left unchanged.
 - **Sort into CD/DVD/POPS** moves a PlayStation 2 CD into `CD`, a PlayStation 2
   DVD into `DVD`, and a PlayStation disc into `POPS`, using the Redump media
   catalogs. Turn it off to rename each file in the folder where it was found.
@@ -112,7 +116,7 @@ chmod +x PS2-Batch-Renamer-V4-Linux-x86_64.AppImage
 ## Database
 
 The root [`gameid.txt`](gameid.txt) is the database embedded in a V4 build.
-The current file contains 24,532 records with 24,532 unique IDs and no
+The current file contains 24,600 records with 24,600 unique IDs and no
 duplicate built-in entries. PlayStation titles were added from the Redump
 PlayStation set. Existing PlayStation 2 titles were left unchanged, including
 `SLUS_005.98` (Gex - Enter the Gecko) and `SCUS_945.55` (Jet Moto 3). The app
@@ -178,6 +182,9 @@ the 2,048-byte user data is read out of each 2,352-byte sector. PlayStation `SYS
 backslash, a directory in front of the executable, a hyphen, and a compact
 serial such as `SCUS943.93` are normalized to the canonical ID. Lightspan
 product codes that are already 11 characters, such as `LSP06010.10`, are kept.
+A Lightspan name with one extra digit, such as `LSP06010.101`, drops that digit.
+An 8.3 serial with the dot moved (`SLUS_00.220`) or the underscore replaced
+(`SLUSP012.06`) is repaired to the canonical ID.
 A PlayStation 2 `0:\` serial is still the original 11 bytes.
 
 See [`docs/algorithm.md`](docs/algorithm.md) for the parity notes and regression

@@ -77,9 +77,32 @@ std::optional<std::string> normalizeToken(std::string_view token) {
         id[4] = '_';
         return id;
     }
+    // 8.3 mastering replaced the underscore: SLUSP012.06 -> SLUS_012.06.
+    if (token.size() == 11 && token[8] == '.' &&
+        allOf(token, 0, 5, isLetter) && allOf(token, 5, 8, isDigitChar) &&
+        allOf(token, 9, 11, isDigitChar)) {
+        const std::string five{token[5], token[6], token[7], token[9], token[10]};
+        return canonicalFromParts(token.substr(0, 4), five);
+    }
     if (token.size() == 11 && token[8] == '.' && isLetter(token[0]) &&
         allOf(token, 0, 8, isUpperAlnum) && allOf(token, 9, 11, isUpperAlnum)) {
         return std::string(token);
+    }
+    // Lightspan executables append one file-version digit: LSP06010.101 -> LSP06010.10.
+    if (token.size() == 12 && token[8] == '.' &&
+        allOf(token, 0, 3, isLetter) && allOf(token, 3, 8, isDigitChar) &&
+        allOf(token, 9, 12, isDigitChar)) {
+        return std::string(token.substr(0, 11));
+    }
+    // 8.3 mastering moved the dot: SLUS_00.220 -> SLUS_002.20.
+    if (token.size() == 11 && token[4] == '_' && token[7] == '.' &&
+        allOf(token, 0, 4, isLetter) && allOf(token, 5, 7, isDigitChar) &&
+        allOf(token, 8, 11, isDigitChar)) {
+        std::string id(token.substr(0, 7));
+        id.push_back(token[8]);
+        id.push_back('.');
+        id.append(token.substr(9, 2));
+        return id;
     }
     if (token.size() == 10 && token[7] == '.' && allOf(token, 0, 4, isLetter) &&
         allOf(token, 4, 7, isDigitChar) && allOf(token, 8, 10, isDigitChar)) {

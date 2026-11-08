@@ -105,8 +105,8 @@ void databaseTests() {
 
     ps2br::GameDatabase built_in;
     expect(built_in.loadBuiltIn(error), "built-in database should load: " + error);
-    expect(built_in.recordCount() == 24532, "built-in database should contain the current record count");
-    expect(built_in.uniqueIdCount() == 24532, "every built-in database ID should be unique");
+    expect(built_in.recordCount() == 24600, "built-in database should contain the current record count");
+    expect(built_in.uniqueIdCount() == 24600, "every built-in database ID should be unique");
     expect(built_in.duplicateIdCount() == 0, "built-in database should contain no duplicate IDs");
     constexpr std::array<std::pair<std::string_view, std::string_view>, 62> audited_titles{{
         {"PCPX_966.49", "Gran Turismo 4 - First Preview"},
@@ -225,7 +225,7 @@ void databaseTests() {
                syphon_beta->title == "Syphon Filter 2 (USA) (Disc 2) (Beta) (2000-01-11)",
            "PSRM0171.00 should resolve to the Syphon Filter 2 disc 2 beta");
     const auto& media = ps2br::MediaCatalog::builtIn();
-    expect(media.size() == 23150, "built-in media catalog should contain the Redump serial set");
+    expect(media.size() == 23218, "built-in media catalog should contain the Redump serial set");
     const ps2br::MediaKind* arcana_media = media.find("SLUS_217.20");
     const ps2br::MediaKind* ico_media = media.find("SCUS_971.13");
     const ps2br::MediaKind* gex_media = media.find("SLUS_005.98");
@@ -245,6 +245,16 @@ void databaseTests() {
            "SLUS_210.83 should be a tied CD and DVD serial");
     expect(namco_media != nullptr && *namco_media == ps2br::MediaKind::Tied,
            "SLUS_202.73 should be a tied CD and DVD serial");
+    const auto* tales = built_in.findFirst("LSP99012.10");
+    expect(tales != nullptr && tales->title == "16 Tales 1 (USA)",
+           "LSP99012.10 should resolve to 16 Tales 1");
+    const auto* final_fantasy_vii_disc_2 = built_in.findFirst("SCUS_941.64");
+    expect(final_fantasy_vii_disc_2 != nullptr &&
+               final_fantasy_vii_disc_2->title == "Final Fantasy VII (USA) (Disc 2)",
+           "SCUS_941.64 should resolve to Final Fantasy VII disc 2");
+    const ps2br::MediaKind* tales_media = media.find("LSP99012.10");
+    expect(tales_media != nullptr && *tales_media == ps2br::MediaKind::Playstation,
+           "LSP99012.10 should be catalogued as PlayStation");
     const auto* retail_kingdom_hearts = built_in.findFirst("SLPM_666.75");
     expect(retail_kingdom_hearts != nullptr &&
                retail_kingdom_hearts->title == "Kingdom Hearts II - Final Mix +",
@@ -995,6 +1005,22 @@ void playstationBootTests(const fs::path& directory) {
     expect(product.success && product.playstation1 && product.game_id == "LSP06010.10",
            "a Lightspan product code should be kept as the database key: " + product.game_id + " / " + product.error);
 
+    const auto product_version = identifyText(folder / "product-version.iso", "BOOT=cdrom:\\LSP06010.101;1\r\n");
+    expect(product_version.success && product_version.playstation1 && product_version.game_id == "LSP06010.10",
+           "a Lightspan executable should drop its extra version digit: " + product_version.game_id + " / " +
+               product_version.error);
+
+    const auto shifted_dot = identifyText(folder / "shifted-dot.iso", "BOOT = cdrom:\\SLUS_00.220;1\r\n");
+    expect(shifted_dot.success && shifted_dot.playstation1 && shifted_dot.game_id == "SLUS_002.20",
+           "an 8.3 serial with the dot shifted left should be repaired: " + shifted_dot.game_id + " / " +
+               shifted_dot.error);
+
+    const auto replaced_underscore = identifyText(folder / "replaced-underscore.iso", "BOOT = cdrom:\\SLUSP012.06;1\r\n");
+    expect(replaced_underscore.success && replaced_underscore.playstation1 &&
+               replaced_underscore.game_id == "SLUS_012.06",
+           "an 8.3 serial that replaced the underscore should be repaired: " + replaced_underscore.game_id + " / " +
+               replaced_underscore.error);
+
     const auto ps2_case = identifyText(folder / "ps2-case.iso", "BOOT2 = cdrom0:\\Slus_217.20;1\r\nVER = 1.00\r\n");
     expect(ps2_case.success && !ps2_case.playstation1 && ps2_case.game_id == "Slus_217.20",
            "a PlayStation 2 serial after 0:\\ should stay byte-exact: " + ps2_case.game_id + " / " + ps2_case.error);
@@ -1033,6 +1059,79 @@ void playstationBootTests(const fs::path& directory) {
     }
 }
 
+void playstationFilenameTests(const fs::path& root) {
+    const fs::path directory = root / "ps1-filenames";
+    fs::create_directories(directory);
+
+    createFixture(directory / "ff7.iso", "SCUS_941.63");
+    patchSystemCnf(directory / "ff7.iso", "BOOT=cdrom:\\\\SCUS_941.63;1\r\n");
+    createFixture(directory / "atrain.iso", "SLUS_000.03");
+    patchSystemCnf(directory / "atrain.iso", "BOOT=cdrom:\\\\SLUS_000.03;1\r\n");
+    createFixture(directory / "pong.iso", "SLUS_808.89");
+    patchSystemCnf(directory / "pong.iso", "BOOT=cdrom:\\\\SLUS_808.89;1\r\n");
+    createFixture(directory / "syphon.iso", "PSRM0171.00");
+    patchSystemCnf(directory / "syphon.iso", "BOOT=cdrom:\\\\PSRM0171.00;1\r\n");
+    createFixture(directory / "mixed.iso", "SLUS_012.72");
+    patchSystemCnf(directory / "mixed.iso", "BOOT=cdrom:\\\\SLUS_012.72;1\r\n");
+    createFixture(directory / "ps2.iso", "SLUS_217.20");
+    createFixture(directory / "gex-nocnf.iso", "SLUS_005.98", false);
+    writeRootFiles(directory / "gex-nocnf.iso", {"SLUS_005.98"});
+
+    ps2br::GameDatabase database;
+    std::string error;
+    expect(database.loadText(
+               "SCUS_941.63 Final Fantasy VII (USA) (Disc 2)\r\n"
+               "SLUS_000.03 A-Train - Trains, Power, Money (USA) (En,Ja,Fr,De)\r\n"
+               "SLUS_808.89 Pong - The Next Level (USA) (Trade Demo)\r\n"
+               "PSRM0171.00 Syphon Filter 2 (USA) (Disc 2) (Beta) (2000-01-11)\r\n"
+               "SLUS_012.72 007 - The World Is Not Enough (USA, Demo)\r\n"
+               "SLUS_217.20 Arcana Heart (USA) (Disc 1)\r\n"
+               "SLUS_005.98 Gex - Enter the Gecko (USA)\r\n",
+               "test", error),
+           "PlayStation filename database should load");
+    const auto* stored = database.findFirst("SCUS_941.63");
+    expect(stored != nullptr && stored->title == "Final Fantasy VII (USA) (Disc 2)",
+           "the stored PlayStation title should keep its Redump tags");
+
+    ps2br::Renamer renamer(database);
+    auto results = renamer.scan({directory, ps2br::ImageType::Iso, ps2br::NamingMode::TitleOnly}, {}, {});
+    expect(results.size() == 7, "PlayStation filename scan should see every fixture");
+
+    const auto expect_name = [&](const char* source, const char* filename, const char* message) {
+        const auto* item = findResult(results, source);
+        const std::string actual = item == nullptr ? std::string("missing")
+            : item->destination_path.filename().string() + " [" + ps2br::toString(item->status) + "] " + item->detail;
+        expect(item != nullptr && item->status == ps2br::ResultStatus::Ready &&
+                   item->destination_path.filename() == filename,
+               std::string(message) + ": " + actual);
+    };
+    expect_name("ff7.iso", "Final Fantasy VII [Disc 2].iso",
+                "a PlayStation disc number should use square brackets and drop the region");
+    expect_name("atrain.iso", "A-Train - Trains, Power, Money.iso",
+                "a PlayStation language list should be left out of the filename");
+    expect_name("pong.iso", "Pong - The Next Level [Trade Demo].iso",
+                "a PlayStation edition marker should move from parentheses to square brackets");
+    expect_name("syphon.iso", "Syphon Filter 2 [Disc 2] [Beta] [2000-01-11].iso",
+                "PlayStation disc, beta, and date markers should each become square brackets");
+    expect_name("mixed.iso", "007 - The World Is Not Enough [USA, Demo].iso",
+                "a parenthetical that mixes a region with other text should stay, in square brackets");
+    expect_name("ps2.iso", "Arcana Heart (USA) (Disc 1).iso",
+                "a PlayStation 2 title should keep the parentheses stored in the database");
+    expect_name("gex-nocnf.iso", "Gex - Enter the Gecko.iso",
+                "a PlayStation catalog serial without SYSTEM.CNF should still drop the region tag");
+
+    const fs::path with_id = root / "ps1-filenames-id";
+    fs::create_directories(with_id);
+    createFixture(with_id / "ff7.iso", "SCUS_941.63");
+    patchSystemCnf(with_id / "ff7.iso", "BOOT=cdrom:\\\\SCUS_941.63;1\r\n");
+    auto id_results = renamer.scan(
+        {with_id, ps2br::ImageType::Iso, ps2br::NamingMode::TitleAndGameId}, {}, {});
+    const auto* id_item = findResult(id_results, "ff7.iso");
+    expect(id_item != nullptr &&
+               id_item->destination_path.filename() == "Final Fantasy VII [Disc 2] (SCUS_941.63).iso",
+           "Include game ID should append the ID after the PlayStation-style title");
+}
+
 } // namespace
 
 int main() {
@@ -1050,6 +1149,7 @@ int main() {
     containerTests(directory);
     autoMediaTests(directory);
     tiedMediaTests(directory);
+    playstationFilenameTests(directory);
     exampleImageTests();
 #if PS2BR_ENABLE_CHD && defined(PS2BR_CHDMAN_EXECUTABLE)
     chdRoundTripTest(directory);

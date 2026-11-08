@@ -24,7 +24,10 @@ generated names are not redesigned.
    (`EXE\SCUS_946.08`, `TEKKEN3\SLUS_004.02`), a hyphen (`SLUS-000.05`), and a
    compact name (`SCUS943.93`) all normalize to `AAAA_BBB.CC`. An on-disc
    product code that is already 11 characters with the dot in the same place,
-   such as `LSP06010.10`, is kept as the database key. If the boot file is
+   such as `LSP06010.10`, is kept as the database key. A Lightspan executable
+   with one extra digit (`LSP06010.101`) drops that digit. An 8.3 name with
+   the dot moved (`SLUS_00.220`) or the underscore replaced (`SLUSP012.06`)
+   is repaired to the canonical serial. If the boot file is
    `PSX.EXE` or another name without a serial, and the root directory contains
    exactly one serial-like filename, that filename is used.
 8. Search the database from top to bottom and use the first line whose first
@@ -88,15 +91,27 @@ path.
 
 | Option | Result |
 |---|---|
-| Include game ID off | `Database Title` plus `.iso`, `.chd`, `.zso`, or `.vcd` |
-| Include game ID on | `Database Title (GAME_ID)` plus the source extension |
+| Include game ID off | Title plus `.iso`, `.chd`, `.zso`, or `.vcd` |
+| Include game ID on | Title plus ` (GAME_ID)` and the source extension |
+
+A PlayStation 2 filename uses the database title as stored. A PlayStation
+filename uses that same house style. A parenthetical group is omitted when
+every comma-separated part is a region or a two-letter language code, such as
+`(USA)`, `(Europe, Australia)`, or `(En,Ja,Fr,De)`. Every other parenthetical
+group is written in square brackets, so `(Disc 2)` becomes `[Disc 2]` and
+`(Trade Demo)` becomes `[Trade Demo]`. The stored database line stays as Redump
+wrote it, and an online copy gets the same filename treatment. The style
+follows a PlayStation boot path. When `SYSTEM.CNF` is missing, a PlayStation
+serial in `media_catalog.txt` gets the same treatment. With Include game ID
+off, a second PlayStation disc that cleans up to a title already used in that
+folder fails because the destination exists.
 
 When a database is loaded, V4 decodes the legacy batch-file escape `^!` as
 `!` and removes trailing spaces or tabs used as line padding. These are storage
-artifacts from the previous shell pipeline, not game-title characters. Apart
-from those compatibility normalizations, V4 does not silently rewrite a title.
-A title containing a character that Windows cannot use in a filename is shown
-as a failed preview item on both platforms.
+artifacts from the previous shell pipeline, not game-title characters. The
+stored title is otherwise unchanged. A title containing a character that
+Windows cannot use in a filename is shown as a failed preview item on both
+platforms.
 
 ## Regression coverage
 
@@ -114,6 +129,9 @@ The automated core tests verify:
 - plain and LZ4 ZSO blocks, including an alignment shift;
 - VCD Mode 2/2352 cooked sectors;
 - POPStarter `cdrom:\` serials, doubled backslashes, and mixed case;
+- PlayStation filenames that omit region and language tags and write other
+  markers in square brackets, while a PlayStation 2 filename keeps the stored
+  title;
 - PlayStation boot paths with no backslash, a directory, a hyphen, a compact
   serial, a product code, and a single root-directory serial;
 - Auto placement into `CD`, `DVD`, and `POPS`, including subdirectory scan;
